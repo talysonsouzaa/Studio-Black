@@ -1,0 +1,77 @@
+# =============================================
+#  STUDIO BLACK – db.py
+#  Conexão e inicialização do banco MySQL
+# =============================================
+
+import mysql.connector
+import logging
+
+# ── Configurações de conexão ──
+# Altere conforme seu ambiente MySQL
+DB_CONFIG = {
+    'host':     'localhost',
+    'port':     3306,
+    'user':     'root',          # Seu usuário MySQL
+    'password': 'sua_senha',     # Sua senha MySQL
+    'database': 'studio_black',
+    'charset':  'utf8mb4',
+}
+
+
+def get_connection():
+    """
+    Retorna uma conexão ativa com o banco de dados MySQL.
+    Retorna None em caso de falha, para ser tratado pelo chamador.
+    """
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        return conn
+    except mysql.connector.Error as e:
+        logging.error(f'Erro ao conectar ao MySQL: {e}')
+        return None
+
+
+def inicializar_banco():
+    """
+    Cria o banco de dados e a tabela de agendamentos
+    se ainda não existirem. Chamado na primeira execução.
+    """
+    try:
+        # Conecta sem selecionar banco para criá-lo
+        cfg_sem_db = {k: v for k, v in DB_CONFIG.items() if k != 'database'}
+        conn = mysql.connector.connect(**cfg_sem_db)
+        cursor = conn.cursor()
+
+        # Criar banco
+        cursor.execute(
+            f"CREATE DATABASE IF NOT EXISTS `{DB_CONFIG['database']}` "
+            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        )
+        cursor.execute(f"USE `{DB_CONFIG['database']}`")
+
+        # Criar tabela de agendamentos
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agendamentos (
+                id        INT AUTO_INCREMENT PRIMARY KEY,
+                barbeiro  VARCHAR(100)  NOT NULL,
+                servico   VARCHAR(150)  NOT NULL,
+                data      DATE          NOT NULL,
+                horario   TIME          NOT NULL,
+                criado_em TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unico_agendamento (barbeiro, data, horario)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        conn.commit()
+        logging.info('Banco de dados e tabela inicializados com sucesso.')
+    except mysql.connector.Error as e:
+        logging.error(f'Erro ao inicializar banco: {e}')
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+# Inicializar banco ao importar o módulo
+inicializar_banco()
