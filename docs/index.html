@@ -207,7 +207,7 @@
           <div class="barbeiro-card" data-barbeiro="Borel Barber" data-tel="553181126249"
             onclick="selecionarBarbeiro(this)">
             <div class="barbeiro-avatar">
-              <img src="borel.jpg" alt="Borel Barber"
+              <img src="borel.jpeg" alt="Borel Barber"
                 onerror="this.style.display='none';this.parentElement.setAttribute('data-fallback','B')" />
             </div>
             <div class="barbeiro-info">
@@ -219,7 +219,7 @@
           <div class="barbeiro-card" data-barbeiro="Junior Barber" data-tel="553192027328"
             onclick="selecionarBarbeiro(this)">
             <div class="barbeiro-avatar">
-              <img src="junior.jpg" alt="Junior Barber"
+              <img src="junior.jpeg" alt="Junior Barber"
                 onerror="this.style.display='none';this.parentElement.setAttribute('data-fallback','J')" />
             </div>
             <div class="barbeiro-info">
@@ -269,6 +269,19 @@
           <div class="resumo-linha"><span>Serviço</span><strong id="r-servico">—</strong></div>
           <div class="resumo-linha"><span>Data</span><strong id="r-data">—</strong></div>
           <div class="resumo-linha"><span>Horário</span><strong id="r-horario">—</strong></div>
+        </div>
+        <div class="resumo-cliente">
+          <h4 class="resumo-cliente-titulo">Seus dados</h4>
+          <div class="resumo-campos">
+            <div class="resumo-campo-group">
+              <label for="r-nome">Seu nome *</label>
+              <input type="text" id="r-nome" placeholder="Ex: João Silva" />
+            </div>
+            <div class="resumo-campo-group">
+              <label for="r-telefone">Seu WhatsApp *</label>
+              <input type="tel" id="r-telefone" placeholder="Ex: (31) 99999-9999" />
+            </div>
+          </div>
         </div>
         <div id="resumo-feedback" class="resumo-feedback"></div>
         <div class="resumo-actions">

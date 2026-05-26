@@ -12,7 +12,7 @@ DB_CONFIG = {
     'host':     'localhost',
     'port':     3306,
     'user':     'root',          # Seu usuário MySQL
-    'password': 'sua_senha',     # Sua senha MySQL
+    'password': '193473202@Ta',     # Sua senha MySQL
     'database': 'studio_black',
     'charset':  'utf8mb4',
 }
@@ -57,11 +57,23 @@ def inicializar_banco():
                 servico   VARCHAR(150)  NOT NULL,
                 data      DATE          NOT NULL,
                 horario   TIME          NOT NULL,
+                nome      VARCHAR(100)  DEFAULT '',
+                telefone  VARCHAR(30)   DEFAULT '',
                 criado_em TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY unico_agendamento (barbeiro, data, horario)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
 
+        conn.commit()
+        # Adicionar colunas nome/telefone se ainda não existirem (migração)
+        try:
+            cursor.execute("ALTER TABLE agendamentos ADD COLUMN nome VARCHAR(100) DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE agendamentos ADD COLUMN telefone VARCHAR(30) DEFAULT ''")
+        except Exception:
+            pass
         conn.commit()
         logging.info('Banco de dados e tabela inicializados com sucesso.')
     except mysql.connector.Error as e:

@@ -283,6 +283,17 @@ function preencherResumo() {
 async function confirmarAgendamento() {
   const btn = document.getElementById('btn-confirmar');
   const fb = document.getElementById('resumo-feedback');
+  const nome = document.getElementById('r-nome').value.trim();
+  const telefone = document.getElementById('r-telefone').value.trim();
+
+  if (!nome || !telefone) {
+    fb.className = 'resumo-feedback error';
+    fb.textContent = 'Por favor, preencha seu nome e WhatsApp antes de confirmar.';
+    return;
+  }
+
+  estado.nome = nome;
+  estado.telefone = telefone;
 
   btn.disabled = true;
   btn.textContent = 'Aguarde…';
@@ -300,6 +311,8 @@ async function confirmarAgendamento() {
         servico: estado.servico,
         data: estado.data,
         horario: estado.horario + ':00',
+        nome: estado.nome,
+        telefone: estado.telefone,
       }),
     });
 
@@ -307,6 +320,7 @@ async function confirmarAgendamento() {
 
     if (res.ok) {
       salvo = true;
+      if (json.id) estado.ultimoId = json.id;
       fb.className = 'resumo-feedback success';
       fb.textContent = '✓ Agendamento salvo! Redirecionando ao WhatsApp…';
     } else {
@@ -329,8 +343,10 @@ async function confirmarAgendamento() {
 
 function abrirWhatsApp() {
   const numero = estado.barbeiroTel;
+  // Buscar o ID do agendamento salvo para gerar link de cancelamento
+  const linkCancelar = `${window.location.origin}/cancelar.html?id=${estado.ultimoId || ''}`;
   const mensagem = encodeURIComponent(
-    `Olá! Quero agendar:\nBarbeiro: ${estado.barbeiro}\nServiço: ${estado.servico}\nData: ${estado.dataDisplay}\nHorário: ${estado.horario}`
+    `Olá! Quero agendar:\nNome: ${estado.nome}\nWhatsApp: ${estado.telefone}\nBarbeiro: ${estado.barbeiro}\nServiço: ${estado.servico}\nData: ${estado.dataDisplay}\nHorário: ${estado.horario}\n\nPrecisando cancelar? Acesse: ${linkCancelar}`
   );
   const url = `https://wa.me/${numero}?text=${mensagem}`;
   window.open(url, '_blank');
@@ -342,7 +358,7 @@ function abrirWhatsApp() {
 }
 
 function resetarAgendamento() {
-  estado = { barbeiro: null, barbeiroTel: null, servico: null, servicoPreco: null, data: null, dataDisplay: null, horario: null };
+  estado = { barbeiro: null, barbeiroTel: null, servico: null, servicoPreco: null, data: null, dataDisplay: null, horario: null, nome: null, telefone: null };
   document.querySelectorAll('.barbeiro-card').forEach(c => c.classList.remove('selected'));
   document.getElementById('btn-confirmar').disabled = false;
   document.getElementById('btn-confirmar').textContent = 'Confirmar e ir ao WhatsApp';

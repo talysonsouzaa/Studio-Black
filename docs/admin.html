@@ -11,6 +11,80 @@
         href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="admin.css" />
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .nav-data-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-data-btn {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            color: #ccc;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: background .15s, color .15s;
+            line-height: 1;
+        }
+
+        .nav-data-btn:hover {
+            background: #2a2a2a;
+            color: #fff;
+        }
+
+        .nav-data-btn.hoje-btn {
+            font-size: 13px;
+            padding: 6px 14px;
+            color: #d4a843;
+            border-color: #d4a84355;
+        }
+
+        .nav-data-btn.hoje-btn:hover {
+            background: #2a2010;
+        }
+
+        #input-data-agenda {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 13px;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+        }
+
+        #input-data-agenda::-webkit-calendar-picker-indicator {
+            filter: invert(0.6);
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
@@ -100,28 +174,46 @@
                         <span class="kpi-valor gold" id="kpi-fat">R$ 0</span>
                     </div>
                 </div>
-                <div class="kpi-card">
+                <div class="kpi-card kpi-clicavel" onclick="rolarParaAgenda()" title="Ver clientes de hoje">
                     <div class="kpi-icon">👥</div>
                     <div class="kpi-info">
                         <span class="kpi-label">Clientes Hoje</span>
                         <span class="kpi-valor" id="kpi-cli">0</span>
                     </div>
+                    <span class="kpi-hint">Ver lista →</span>
                 </div>
-                <div class="kpi-card">
+                <div class="kpi-card kpi-clicavel" onclick="rolarParaProximo()" title="Ver próximo cliente">
                     <div class="kpi-icon">⏰</div>
                     <div class="kpi-info">
                         <span class="kpi-label">Próximo Cliente</span>
                         <span class="kpi-valor sm" id="kpi-prox">—</span>
                     </div>
+                    <span class="kpi-hint">Ver →</span>
                 </div>
-                <div class="kpi-card">
+                <div class="kpi-card kpi-clicavel" onclick="abrirModalLivres()" title="Ver horários disponíveis">
                     <div class="kpi-icon">🕐</div>
                     <div class="kpi-info">
                         <span class="kpi-label">Horários Livres</span>
                         <span class="kpi-valor" id="kpi-livre">—</span>
                     </div>
+                    <span class="kpi-hint">Ver horários →</span>
                 </div>
             </section>
+
+            <!-- Modal horários livres -->
+            <div id="modal-livres" class="modal-overlay" style="display:none" onclick="fecharModalLivres(event)">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3>🕐 Horários Disponíveis</h3>
+                        <button class="modal-fechar" onclick="fecharModalLivres()">✕</button>
+                    </div>
+                    <div class="modal-data-picker">
+                        <label>Consultar data:</label>
+                        <input type="date" id="modal-data-input" onchange="buscarLivresData(this.value)" />
+                    </div>
+                    <div id="modal-livres-lista" class="modal-horarios"></div>
+                </div>
+            </div>
 
             <!-- Agenda hoje -->
             <section class="painel-section">

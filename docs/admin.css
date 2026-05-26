@@ -421,6 +421,8 @@ body {
     align-items: center;
     gap: 16px;
     transition: border-color var(--tr), transform var(--tr);
+    min-width: 0;
+    overflow: hidden;
 }
 
 .kpi-card:hover {
@@ -451,9 +453,13 @@ body {
 
 .kpi-valor {
     font-family: var(--font-d);
-    font-size: 30px;
-    line-height: 1;
+    font-size: 28px;
+    line-height: 1.1;
     color: var(--white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
 }
 
 .kpi-valor.gold {
@@ -461,7 +467,9 @@ body {
 }
 
 .kpi-valor.sm {
-    font-size: 18px;
+    font-size: 15px;
+    font-family: var(--font-b);
+    font-weight: 500;
 }
 
 /* Sections */
@@ -711,4 +719,183 @@ body {
     .kpi-valor {
         font-size: 24px;
     }
+}
+
+/* ── KPI clicável ── */
+.kpi-clicavel {
+    cursor: pointer;
+    position: relative;
+    flex-wrap: nowrap;
+}
+
+.kpi-clicavel:hover {
+    border-color: var(--gold) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+
+.kpi-hint {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    color: var(--gold);
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+
+.kpi-clicavel:hover .kpi-hint {
+    opacity: 1;
+}
+
+/* ── Modal horários livres ── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(0, 0, 0, .75);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: fadeIn .2s ease;
+}
+
+.modal-box {
+    background: var(--black2);
+    border: 1px solid rgba(212, 168, 67, .3);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.modal-header h3 {
+    font-family: var(--font-s);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.modal-fechar {
+    background: none;
+    border: none;
+    color: var(--gray);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color .2s ease;
+}
+
+.modal-fechar:hover {
+    color: var(--white);
+}
+
+.modal-horarios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.modal-slot {
+    background: var(--black3);
+    border: 1px solid rgba(212, 168, 67, .25);
+    color: var(--gold);
+    font-family: var(--font-d);
+    font-size: 20px;
+    padding: 10px 20px;
+    border-radius: var(--r);
+}
+
+.modal-vazio {
+    color: var(--gray);
+    font-size: 14px;
+    text-align: center;
+    padding: 24px;
+}
+
+/* ── Modal data picker ── */
+.modal-data-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.modal-data-picker label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gray);
+    white-space: nowrap;
+}
+
+.modal-data-picker input[type="date"] {
+    background: var(--black3);
+    border: 1px solid rgba(212, 168, 67, .3);
+    color: var(--white);
+    font-family: var(--font-b);
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: var(--r);
+    outline: none;
+    flex: 1;
+    transition: border-color .2s ease;
+}
+
+.modal-data-picker input[type="date"]:focus {
+    border-color: var(--gold);
+}
+
+
+/* ── Agenda item passado ── */
+.ag-item.passado {
+    opacity: .45;
+    filter: grayscale(30%);
+}
+
+.ag-item.passado .ag-hora {
+    color: var(--gray);
+}
+
+/* ── Botão cancelar na agenda ── */
+.ag-acoes {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-cancelar-ag {
+    background: transparent;
+    border: 1px solid rgba(231, 76, 60, .4);
+    color: #e74c3c;
+    font-family: var(--font-b);
+    font-size: 11px;
+    letter-spacing: .5px;
+    padding: 5px 12px;
+    border-radius: var(--r);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--tr);
+}
+
+.btn-cancelar-ag:hover {
+    background: rgba(231, 76, 60, .12);
 }

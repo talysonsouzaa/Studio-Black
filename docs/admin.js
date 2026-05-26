@@ -31,6 +31,18 @@ const PRECOS = {
 
 const TOTAL_SLOTS_DIA = 18; // 09:00 a 17:30 de 30 em 30min
 
+// Todos os slots possíveis do dia
+const TODOS_SLOTS = [];
+for (let h = 9; h < 18; h++) {
+    TODOS_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
+    TODOS_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+}
+// Garantir que vai até 17:30
+const SLOTS_DIA = TODOS_SLOTS.filter(s => s <= '17:30');
+
+let agendaHojeCache = []; // cache dos agendamentos do dia
+let dataAgendaAtual = null; // data sendo visualizada na agenda (definida no abrirPainel)
+
 /* ── Estado ── */
 let barbeiroAtual = 'Borel Barber';
 let barbeiroLogado = null;
@@ -104,14 +116,56 @@ function abrirPainel() {
     document.getElementById('tela-painel').style.display = 'block';
     document.getElementById('topbar-nome').textContent = barbeiroLogado;
 
-    // Data de hoje
-    const hoje = new Date();
-    const opts = { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' };
-    document.getElementById('label-data-hoje').textContent =
-        hoje.toLocaleDateString('pt-BR', opts);
+    // Inicializar data da agenda como hoje
+    dataAgendaAtual = isoHoje();
 
+    // Injetar controles de navegação de data na agenda
+    const secHeader = document.querySelector('.painel-section .section-header');
+    if (secHeader && !document.getElementById('nav-agenda-data')) {
+        secHeader.innerHTML = `
+            <div class="section-header-left">
+                <h2>📅 Agenda</h2>
+                <span id="label-data-hoje" class="label-data"></span>
+            </div>
+            <div class="nav-data-wrap" id="nav-agenda-data">
+                <button class="nav-data-btn" onclick="navegarAgenda(-1)" title="Dia anterior">‹</button>
+                <input type="date" id="input-data-agenda" value="${dataAgendaAtual}"
+                    onchange="navegarAgendaData(this.value)" />
+                <button class="nav-data-btn hoje-btn" onclick="navegarAgendaData('${isoHoje()}')">Hoje</button>
+                <button class="nav-data-btn" onclick="navegarAgenda(1)" title="Próximo dia">›</button>
+            </div>
+        `;
+    }
+
+    atualizarLabelData();
     carregarAgendaHoje();
     carregarHistorico();
+}
+
+function atualizarLabelData() {
+    const [ano, mes, dia] = dataAgendaAtual.split('-');
+    const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
+    const opts = { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' };
+    const label = document.getElementById('label-data-hoje');
+    if (label) label.textContent = d.toLocaleDateString('pt-BR', opts);
+    const input = document.getElementById('input-data-agenda');
+    if (input) input.value = dataAgendaAtual;
+}
+
+function navegarAgenda(delta) {
+    const [ano, mes, dia] = dataAgendaAtual.split('-').map(Number);
+    const d = new Date(ano, mes - 1, dia);
+    d.setDate(d.getDate() + delta);
+    dataAgendaAtual = d.toISOString().split('T')[0];
+    atualizarLabelData();
+    carregarAgendaHoje();
+}
+
+function navegarAgendaData(data) {
+    if (!data) return;
+    dataAgendaAtual = data;
+    atualizarLabelData();
+    carregarAgendaHoje();
 }
 
 function atualizarPainel() {
@@ -128,7 +182,7 @@ function atualizarPainel() {
    AGENDA DE HOJE
 ───────────────────────────────────── */
 async function carregarAgendaHoje() {
-    const hoje = isoHoje();
+    const dataConsulta = dataAgendaAtual || isoHoje();
     const loading = document.getElementById('load-hoje');
     const lista = document.getElementById('lista-hoje');
 
@@ -138,7 +192,7 @@ async function carregarAgendaHoje() {
     let ags = [];
     try {
         const res = await fetch(
-            `${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${hoje}`
+            `${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${dataConsulta}`
         );
         if (res.ok) ags = await res.json();
     } catch (e) {
@@ -146,41 +200,56 @@ async function carregarAgendaHoje() {
     }
 
     loading.style.display = 'none';
+    agendaHojeCache = ags;
 
-    // Calcular KPIs
+    const ehHoje = dataConsulta === isoHoje();
     const agora = new Date();
     const horaAgora = `${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
-    const proximos = ags.filter(a => a.horario.slice(0, 5) > horaAgora);
+    const horaAgoraFull = `${pad(agora.getHours())}:${pad(agora.getMinutes())}:00`;
+    const proximos = ehHoje ? ags.filter(a => a.horario > horaAgoraFull) : [];
     const proximo = proximos.length ? proximos[0] : null;
     const faturamento = ags.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
     const livres = TOTAL_SLOTS_DIA - ags.length;
 
-    document.getElementById('kpi-fat').textContent = `R$ ${faturamento}`;
-    document.getElementById('kpi-cli').textContent = ags.length;
-    document.getElementById('kpi-livre').textContent = livres > 0 ? livres : '0';
-    document.getElementById('kpi-prox').textContent = proximo
-        ? `${proximo.horario.slice(0, 5)} · ${proximo.servico}`
-        : 'Nenhum';
+    // KPIs só atualizam quando for hoje
+    if (ehHoje) {
+        document.getElementById('kpi-fat').textContent = `R$ ${faturamento}`;
+        document.getElementById('kpi-cli').textContent = ags.length;
+        document.getElementById('kpi-livre').textContent = livres > 0 ? livres : '0';
+        const nomeProx = proximo ? (proximo.nome || 'Cliente') : null;
+        document.getElementById('kpi-prox').textContent = proximo
+            ? `${proximo.horario.slice(0, 5)} · ${nomeProx}`
+            : 'Nenhum';
+        if (!proximo) buscarProximoGeral();
+    }
 
     if (ags.length === 0) {
-        lista.innerHTML = '<div class="vazio">Nenhum agendamento para hoje.</div>';
+        lista.innerHTML = '<div class="vazio">Nenhum agendamento para este dia.</div>';
         return;
     }
 
     ags.forEach(a => {
         const isProximo = proximo && a.id === proximo.id;
+        const jaPassou = ehHoje && a.horario.slice(0, 5) < horaAgora;
         const preco = PRECOS[a.servico] ?? '?';
+        const nomeCliente = a.nome || '—';
+        const tel = a.telefone || '';
         const div = document.createElement('div');
-        div.className = 'ag-item' + (isProximo ? ' proximo' : '');
+        div.className = 'ag-item' + (isProximo ? ' proximo' : '') + (jaPassou ? ' passado' : '');
         div.innerHTML = `
       <span class="ag-hora">${a.horario.slice(0, 5)}</span>
       <div class="ag-info">
         <span class="ag-servico">
           ${a.servico}
           ${isProximo ? '<span class="ag-tag">Próximo</span>' : ''}
+          ${jaPassou ? '<span class="ag-tag" style="background:#555;color:#ccc">Concluído</span>' : ''}
         </span>
+        <span class="ag-meta">👤 ${nomeCliente}${tel ? ' · 📱 ' + tel : ''}</span>
       </div>
-      <span class="ag-preco">R$ ${preco}</span>
+      <div class="ag-acoes">
+        <span class="ag-preco">R$ ${preco}</span>
+        <button class="btn-cancelar-ag" onclick="cancelarAgendamento(${a.id}, '${nomeCliente.replace(/'/g, "\\'")}', '${tel}', '${a.servico.replace(/'/g, "\\'")}', '${a.data}', '${a.horario.slice(0, 5)}')">✕ Cancelar</button>
+      </div>
     `;
         lista.appendChild(div);
     });
@@ -220,13 +289,15 @@ async function carregarHistorico(dataFiltro) {
         const preco = PRECOS[a.servico] ?? '?';
         const [ano, mes, dia] = a.data.split('-');
         const dataFmt = `${dia}/${mes}/${ano}`;
+        const nomeCliente = a.nome || '—';
+        const tel = a.telefone || '';
         const div = document.createElement('div');
         div.className = 'ag-item';
         div.innerHTML = `
       <span class="ag-hora">${a.horario.slice(0, 5)}</span>
       <div class="ag-info">
         <span class="ag-servico">${a.servico}</span>
-        <span class="ag-meta">📅 ${dataFmt}</span>
+        <span class="ag-meta">📅 ${dataFmt} · 👤 ${nomeCliente}${tel ? ' · 📱 ' + tel : ''}</span>
       </div>
       <span class="ag-preco">R$ ${preco}</span>
     `;
@@ -271,3 +342,279 @@ function isoHoje() {
 }
 function pad(n) { return String(n).padStart(2, '0'); }
 function enc(s) { return encodeURIComponent(s); }
+
+
+/* ─────────────────────────────────────
+   INTERAÇÕES DOS KPI CARDS
+───────────────────────────────────── */
+
+// Rolar até a agenda de hoje
+function rolarParaAgenda() {
+    const secao = document.querySelector('.painel-section');
+    if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Rolar até o próximo cliente e piscar
+function rolarParaProximo() {
+    const proximo = document.querySelector('.ag-item.proximo');
+    if (proximo) {
+        proximo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        proximo.style.transition = 'box-shadow 0.3s ease';
+        proximo.style.boxShadow = '0 0 0 3px #d4a843';
+        setTimeout(() => { proximo.style.boxShadow = ''; }, 1500);
+    } else {
+        rolarParaAgenda();
+    }
+}
+
+// Abrir modal de horários livres
+function abrirModalLivres() {
+    const modal = document.getElementById('modal-livres');
+    // Setar data padrão como hoje
+    const inputData = document.getElementById('modal-data-input');
+    if (!inputData.value) inputData.value = isoHoje();
+    modal.style.display = 'flex';
+    buscarLivresData(inputData.value);
+}
+
+async function buscarLivresData(data) {
+    const lista = document.getElementById('modal-livres-lista');
+    lista.innerHTML = '<div class="modal-vazio">🔄 Buscando horários…</div>';
+
+    let ocupados = [];
+    try {
+        const res = await fetch(
+            `${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${data}`
+        );
+        if (res.ok) {
+            const ags = await res.json();
+            ocupados = ags.map(a => a.horario.slice(0, 5));
+        }
+    } catch (e) { }
+
+    lista.innerHTML = '';
+
+    const agora = new Date();
+    const isHoje = data === isoHoje();
+    const horaAgora = `${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
+
+    const livres = SLOTS_DIA.filter(s => {
+        if (ocupados.includes(s)) return false;
+        if (isHoje && s < horaAgora) return false;
+        return true;
+    });
+
+    if (livres.length === 0) {
+        lista.innerHTML = '<div class="modal-vazio">Nenhum horário disponível neste dia.</div>';
+    } else {
+        livres.forEach(slot => {
+            const div = document.createElement('div');
+            div.className = 'modal-slot';
+            div.textContent = slot;
+            lista.appendChild(div);
+        });
+    }
+}
+
+// Buscar próximo agendamento geral (qualquer dia futuro)
+async function buscarProximoGeral() {
+    try {
+        const res = await fetch(
+            `${API_BASE}/admin/historico?barbeiro=${enc(barbeiroLogado)}`
+        );
+        if (!res.ok) return;
+        const todos = await res.json();
+        const agora = new Date();
+        const isoAgora = `${isoHoje()} ${pad(agora.getHours())}:${pad(agora.getMinutes())}:00`;
+
+        const futuros = todos.filter(a => {
+            const isoAg = `${a.data} ${a.horario}`;
+            return isoAg > isoAgora;
+        });
+
+        if (futuros.length > 0) {
+            // Ordenar crescente
+            futuros.sort((a, b) => `${a.data} ${a.horario}` > `${b.data} ${b.horario}` ? 1 : -1);
+            const prox = futuros[0];
+            const [ano, mes, dia] = prox.data.split('-');
+            const nome = prox.nome ? capitalize(prox.nome) : 'Sem nome';
+            document.getElementById('kpi-prox').textContent =
+                `${dia}/${mes} às ${prox.horario.slice(0, 5)} · ${nome}`;
+        }
+    } catch (e) { }
+}
+
+function fecharModalLivres(event) {
+    if (!event || event.target === document.getElementById('modal-livres')) {
+        document.getElementById('modal-livres').style.display = 'none';
+    }
+}
+
+
+/* ── Helper capitalize ── */
+function capitalize(str) {
+    return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+
+/* ─────────────────────────────────────
+   CANCELAMENTO PELO ADMIN
+───────────────────────────────────── */
+function cancelarAgendamento(id, nome, telefone, servico, data, horario) {
+    const nomeExib = nome && nome !== '—' ? capitalize(nome) : 'Cliente';
+    const [ano, mes, dia] = data.split('-');
+    const dataFmt = `${dia}/${mes}/${ano}`;
+
+    // Criar modal de confirmação customizado
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-cancelar-overlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.75);
+        display:flex;align-items:center;justify-content:center;z-index:9999;
+        animation:fadeIn .15s ease;
+    `;
+    overlay.innerHTML = `
+        <div style="
+            background:#1a1a1a;border:1px solid #333;border-radius:12px;
+            padding:28px 32px;max-width:420px;width:90%;
+            animation:slideUp .2s ease;
+        ">
+            <h3 style="color:#fff;font-family:'Bebas Neue',sans-serif;font-size:22px;margin:0 0 6px;letter-spacing:1px;">
+                Cancelar Agendamento
+            </h3>
+            <p style="color:#888;font-size:13px;margin:0 0 20px;">Esta ação não poderá ser desfeita.</p>
+
+            <div style="background:#111;border:1px solid #2a2a2a;border-radius:8px;padding:16px;margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span style="color:#666;font-size:13px;">Cliente</span>
+                    <span style="color:#fff;font-size:13px;font-weight:500;">${nomeExib}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span style="color:#666;font-size:13px;">Serviço</span>
+                    <span style="color:#fff;font-size:13px;">${servico}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span style="color:#666;font-size:13px;">Data</span>
+                    <span style="color:#fff;font-size:13px;">${dataFmt}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;font-size:13px;">Horário</span>
+                    <span style="color:#d4a843;font-size:13px;font-weight:500;">${horario}</span>
+                </div>
+            </div>
+
+            ${telefone && telefone !== '—' ? `
+            <div style="background:#0d1f13;border:1px solid #1a3a20;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">📱</span>
+                <div>
+                    <p style="color:#4caf50;font-size:12px;font-weight:500;margin:0 0 2px;">Aviso automático via WhatsApp</p>
+                    <p style="color:#888;font-size:12px;margin:0;">Uma mensagem será enviada para ${telefone}</p>
+                </div>
+            </div>
+            ` : `
+            <div style="background:#1f1200;border:1px solid #3a2000;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">⚠️</span>
+                <p style="color:#f0a030;font-size:12px;margin:0;">Nenhum telefone cadastrado. O cliente não será avisado automaticamente.</p>
+            </div>
+            `}
+
+            <div style="display:flex;gap:12px;">
+                <button id="btn-modal-nao" style="
+                    flex:1;padding:12px;background:transparent;
+                    border:1px solid #333;border-radius:8px;
+                    color:#aaa;font-size:14px;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                " onmouseover="this.style.background='#222'" onmouseout="this.style.background='transparent'">
+                    Voltar
+                </button>
+                <button id="btn-modal-sim" style="
+                    flex:1;padding:12px;background:#c0392b;
+                    border:1px solid #e74c3c;border-radius:8px;
+                    color:#fff;font-size:14px;font-weight:500;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                " onmouseover="this.style.background='#e74c3c'" onmouseout="this.style.background='#c0392b'">
+                    ✕ Confirmar Cancelamento
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Fechar ao clicar fora
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) fecharModalCancelar();
+    });
+    document.getElementById('btn-modal-nao').onclick = fecharModalCancelar;
+    document.getElementById('btn-modal-sim').onclick = () => confirmarCancelamento(id, nome, telefone, servico, data, horario, dataFmt);
+}
+
+function fecharModalCancelar() {
+    const overlay = document.getElementById('modal-cancelar-overlay');
+    if (overlay) overlay.remove();
+}
+
+async function confirmarCancelamento(id, nome, telefone, servico, data, horario, dataFmt) {
+    const btnSim = document.getElementById('btn-modal-sim');
+    btnSim.textContent = 'Cancelando…';
+    btnSim.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/cancelar/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            fecharModalCancelar();
+            mostrarToast('Erro ao cancelar. Tente novamente.', 'erro');
+            return;
+        }
+
+        fecharModalCancelar();
+        mostrarToast(`Agendamento de ${nome && nome !== '—' ? capitalize(nome) : 'cliente'} cancelado.`, 'ok');
+
+        // Abrir WhatsApp com mensagem de cancelamento
+        if (telefone && telefone !== '—') {
+            const tel = telefone.replace(/\D/g, '');
+            const numCompleto = tel.startsWith('55') ? tel : '55' + tel;
+            const nomeMsg = nome && nome !== '—' ? ' ' + capitalize(nome) : '';
+            const msg = encodeURIComponent(
+                `Olá${nomeMsg}! 😊
+
+Infelizmente tivemos um imprevisto e precisamos cancelar seu agendamento:
+
+✂️ Serviço: ${servico}
+📅 Data: ${dataFmt}
+⏰ Horário: ${horario}
+
+Pedimos desculpas pelo transtorno. Entre em contato para remarcar quando quiser, será um prazer atendê-lo(a)!
+
+Studio Black 💈`
+            );
+            setTimeout(() => {
+                window.open(`https://wa.me/${numCompleto}?text=${msg}`, '_blank');
+            }, 400);
+        }
+
+        await carregarAgendaHoje();
+    } catch (e) {
+        fecharModalCancelar();
+        mostrarToast('Erro ao conectar ao servidor.', 'erro');
+    }
+}
+
+/* ─────────────────────────────────────
+   TOAST DE FEEDBACK
+───────────────────────────────────── */
+function mostrarToast(msg, tipo) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+        background:${tipo === 'ok' ? '#1a3a20' : '#3a1010'};
+        border:1px solid ${tipo === 'ok' ? '#4caf50' : '#e74c3c'};
+        color:${tipo === 'ok' ? '#4caf50' : '#e74c3c'};
+        padding:12px 24px;border-radius:8px;font-size:14px;
+        z-index:99999;animation:fadeIn .2s ease;
+        font-family:'DM Sans',sans-serif;
+    `;
+    toast.textContent = (tipo === 'ok' ? '✓ ' : '✕ ') + msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
