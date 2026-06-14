@@ -6,7 +6,7 @@
        antes de publicar o site!
 */
 
-const API_BASE = 'http://localhost:5000'; // URL do backend
+const API_BASE = 'https://studioblack.up.railway.app';  // URL do backend
 
 /* ── Senhas ── */
 const SENHAS = {
