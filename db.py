@@ -5,7 +5,7 @@
 
 import mysql.connector
 import logging
-import os
+
 
 # ── Configurações de conexão ──
 # Altere conforme seu ambiente MySQL
