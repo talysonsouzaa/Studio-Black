@@ -1009,3 +1009,66 @@ footer {
     text-align: center;
   }
 }
+
+
+/* ── Resumo – campos nome e telefone ── */
+.resumo-cliente {
+  background: var(--black3);
+  border: 1px solid rgba(212, 168, 67, .2);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.resumo-cliente-titulo {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+.resumo-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.resumo-campo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resumo-campo-group label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.resumo-campo-group input {
+  background: var(--black2);
+  border: 1px solid rgba(255, 255, 255, .1);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.resumo-campo-group input:focus {
+  border-color: var(--gold);
+}
+
+.resumo-campo-group input::placeholder {
+  color: rgba(255, 255, 255, .25);
+}
+
+@media (max-width: 480px) {
+  .resumo-campos {
+    grid-template-columns: 1fr;
+  }
+}

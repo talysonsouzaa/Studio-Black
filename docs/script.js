@@ -6,21 +6,21 @@
 const API_BASE = 'http://localhost:5000'; // Altere para a URL do seu backend
 
 const SERVICOS = [
-  { nome: 'Corte',                               preco: 'R$ 40'  },
-  { nome: 'Cabelo e Barba (COMBO)',               preco: 'R$ 80'  },
-  { nome: 'Luzes + Corte',                        preco: 'R$ 150' },
-  { nome: 'Sobrancelhas',                         preco: 'R$ 15'  },
-  { nome: 'Feminino',                             preco: 'R$ 65'  },
-  { nome: 'Corte + Barba + Sobrancelha (COMBO)',  preco: 'R$ 95'  },
-  { nome: 'Corte + Sobrancelha (PROMO)',          preco: 'R$ 50'  },
-  { nome: 'Pai e Filho',                          preco: 'R$ 80'  },
-  { nome: 'Corte + Lavagem + Escova',             preco: 'R$ 50'  },
-  { nome: 'Acabamento Pezinho',                   preco: 'R$ 15'  },
-  { nome: 'Barboterapia',                         preco: 'R$ 40'  },
+  { nome: 'Corte', preco: 'R$ 40' },
+  { nome: 'Cabelo e Barba (COMBO)', preco: 'R$ 80' },
+  { nome: 'Luzes + Corte', preco: 'R$ 150' },
+  { nome: 'Sobrancelhas', preco: 'R$ 15' },
+  { nome: 'Feminino', preco: 'R$ 65' },
+  { nome: 'Corte + Barba + Sobrancelha (COMBO)', preco: 'R$ 95' },
+  { nome: 'Corte + Sobrancelha (PROMO)', preco: 'R$ 50' },
+  { nome: 'Pai e Filho', preco: 'R$ 80' },
+  { nome: 'Corte + Lavagem + Escova', preco: 'R$ 50' },
+  { nome: 'Acabamento Pezinho', preco: 'R$ 15' },
+  { nome: 'Barboterapia', preco: 'R$ 40' },
 ];
 
-const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-const DIAS_SEMANA_FULL = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const DIAS_SEMANA_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 /* ── Estado da aplicação ── */
 let estado = {
@@ -89,7 +89,7 @@ function selecionarBarbeiro(el) {
   document.querySelectorAll('.barbeiro-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 
-  estado.barbeiro    = el.dataset.barbeiro;
+  estado.barbeiro = el.dataset.barbeiro;
   estado.barbeiroTel = el.dataset.tel;
 
   // Aguarda pequeno delay para feedback visual
@@ -122,7 +122,7 @@ function selecionarServico(el, servico) {
   document.querySelectorAll('.servico-item').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 
-  estado.servico      = servico.nome;
+  estado.servico = servico.nome;
   estado.servicoPreco = servico.preco;
 
   setTimeout(() => {
@@ -140,7 +140,7 @@ function renderizarCalendario() {
 
   const hoje = new Date();
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 30; i++) {
     const d = new Date(hoje);
     d.setDate(hoje.getDate() + i);
 
@@ -148,9 +148,9 @@ function renderizarCalendario() {
     const isDomingo = diaSemana === 0;
 
     const yyyy = d.getFullYear();
-    const mm   = String(d.getMonth() + 1).padStart(2, '0');
-    const dd   = String(d.getDate()).padStart(2, '0');
-    const iso  = `${yyyy}-${mm}-${dd}`;
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const iso = `${yyyy}-${mm}-${dd}`;
 
     const card = document.createElement('div');
     card.className = 'dia-card' + (isDomingo ? ' domingo' : '');
@@ -172,11 +172,11 @@ function selecionarData(el, iso, dateObj) {
   el.classList.add('selected');
 
   const diaSemana = DIAS_SEMANA_FULL[dateObj.getDay()];
-  const dd = String(dateObj.getDate()).padStart(2,'0');
-  const mm = String(dateObj.getMonth()+1).padStart(2,'0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
   const yyyy = dateObj.getFullYear();
 
-  estado.data        = iso;
+  estado.data = iso;
   estado.dataDisplay = `${diaSemana}, ${dd}/${mm}/${yyyy}`;
 
   setTimeout(() => {
@@ -189,7 +189,7 @@ function selecionarData(el, iso, dateObj) {
    PASSO 4 – Horários
 ───────────────────────────────────── */
 async function carregarHorarios() {
-  const grid    = document.getElementById('horarios-grid');
+  const grid = document.getElementById('horarios-grid');
   const loading = document.getElementById('horarios-loading');
 
   grid.innerHTML = '';
@@ -198,22 +198,22 @@ async function carregarHorarios() {
   /* Gerar slots 09:00–17:30 de 30 em 30 min */
   const slots = [];
   for (let h = 9; h < 18; h++) {
-    slots.push(`${String(h).padStart(2,'0')}:00`);
-    if (h < 17 || true) slots.push(`${String(h).padStart(2,'0')}:30`);
+    slots.push(`${String(h).padStart(2, '0')}:00`);
+    if (h < 17 || true) slots.push(`${String(h).padStart(2, '0')}:30`);
   }
   // Filtrar até 17:30 (último slot)
   const todosSlots = slots.filter(s => s <= '17:30');
 
-  /* Buscar horários ocupados no backend */
+  /* Buscar horários ocupados e bloqueados no backend */
   let ocupados = [];
+  let bloqueados = [];
   try {
-    const res = await fetch(
-      `${API_BASE}/horarios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`
-    );
-    if (res.ok) {
-      const json = await res.json();
-      ocupados = json.ocupados || [];
-    }
+    const [resOcup, resBloc] = await Promise.all([
+      fetch(`${API_BASE}/horarios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`),
+      fetch(`${API_BASE}/bloqueios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`)
+    ]);
+    if (resOcup.ok) { const j = await resOcup.json(); ocupados = j.ocupados || []; }
+    if (resBloc.ok) { const j = await resBloc.json(); bloqueados = j.bloqueados || []; }
   } catch (err) {
     console.warn('Backend indisponível – mostrando todos os horários.');
   }
@@ -221,7 +221,7 @@ async function carregarHorarios() {
   loading.style.display = 'none';
 
   /* Horários passados no dia de hoje */
-  const agora  = new Date();
+  const agora = new Date();
   const isHoje = estado.data === formatarDataISO(agora);
 
   todosSlots.forEach(slot => {
@@ -231,12 +231,14 @@ async function carregarHorarios() {
     btn.textContent = slot;
 
     const jaPAssou = isHoje && (sh < agora.getHours() || (sh === agora.getHours() && sm <= agora.getMinutes()));
-    const ocupado  = ocupados.includes(slot + ':00') || ocupados.includes(slot);
+    const ocupado = ocupados.includes(slot + ':00') || ocupados.includes(slot);
+    const bloqueado = bloqueados.includes(slot + ':00') || bloqueados.includes(slot);
 
-    if (jaPAssou || ocupado) {
+    if (jaPAssou || ocupado || bloqueado) {
       btn.disabled = true;
       if (ocupado) btn.title = 'Horário já agendado';
       if (jaPAssou) btn.title = 'Horário já passou';
+      if (bloqueado) { btn.title = 'Horário indisponível'; btn.classList.add('bloqueado'); }
     } else {
       btn.addEventListener('click', () => selecionarHorario(btn, slot));
     }
@@ -247,8 +249,8 @@ async function carregarHorarios() {
 
 function formatarDataISO(d) {
   const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2,'0');
-  const dd   = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
@@ -268,9 +270,9 @@ function selecionarHorario(el, horario) {
 ───────────────────────────────────── */
 function preencherResumo() {
   document.getElementById('r-barbeiro').textContent = estado.barbeiro;
-  document.getElementById('r-servico').textContent  = `${estado.servico} – ${estado.servicoPreco}`;
-  document.getElementById('r-data').textContent     = estado.dataDisplay;
-  document.getElementById('r-horario').textContent  = estado.horario;
+  document.getElementById('r-servico').textContent = `${estado.servico} – ${estado.servicoPreco}`;
+  document.getElementById('r-data').textContent = estado.dataDisplay;
+  document.getElementById('r-horario').textContent = estado.horario;
 
   const fb = document.getElementById('resumo-feedback');
   fb.className = 'resumo-feedback';
@@ -282,12 +284,23 @@ function preencherResumo() {
 ───────────────────────────────────── */
 async function confirmarAgendamento() {
   const btn = document.getElementById('btn-confirmar');
-  const fb  = document.getElementById('resumo-feedback');
+  const fb = document.getElementById('resumo-feedback');
+  const nome = document.getElementById('r-nome').value.trim();
+  const telefone = document.getElementById('r-telefone').value.trim();
 
-  btn.disabled    = true;
+  if (!nome || !telefone) {
+    fb.className = 'resumo-feedback error';
+    fb.textContent = 'Por favor, preencha seu nome e WhatsApp antes de confirmar.';
+    return;
+  }
+
+  estado.nome = nome;
+  estado.telefone = telefone;
+
+  btn.disabled = true;
   btn.textContent = 'Aguarde…';
-  fb.className    = 'resumo-feedback';
-  fb.textContent  = '';
+  fb.className = 'resumo-feedback';
+  fb.textContent = '';
 
   let salvo = false;
 
@@ -297,9 +310,11 @@ async function confirmarAgendamento() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         barbeiro: estado.barbeiro,
-        servico:  estado.servico,
-        data:     estado.data,
-        horario:  estado.horario + ':00',
+        servico: estado.servico,
+        data: estado.data,
+        horario: estado.horario + ':00',
+        nome: estado.nome,
+        telefone: estado.telefone,
       }),
     });
 
@@ -307,12 +322,13 @@ async function confirmarAgendamento() {
 
     if (res.ok) {
       salvo = true;
+      if (json.id) estado.ultimoId = json.id;
       fb.className = 'resumo-feedback success';
       fb.textContent = '✓ Agendamento salvo! Redirecionando ao WhatsApp…';
     } else {
       fb.className = 'resumo-feedback error';
       fb.textContent = json.erro || 'Este horário já foi reservado. Escolha outro.';
-      btn.disabled    = false;
+      btn.disabled = false;
       btn.textContent = 'Confirmar e ir ao WhatsApp';
       return;
     }
@@ -329,8 +345,10 @@ async function confirmarAgendamento() {
 
 function abrirWhatsApp() {
   const numero = estado.barbeiroTel;
+  // Buscar o ID do agendamento salvo para gerar link de cancelamento
+  const linkCancelar = `${window.location.origin}/cancelar.html?id=${estado.ultimoId || ''}`;
   const mensagem = encodeURIComponent(
-    `Olá! Quero agendar:\nBarbeiro: ${estado.barbeiro}\nServiço: ${estado.servico}\nData: ${estado.dataDisplay}\nHorário: ${estado.horario}`
+    `Olá! Quero agendar:\nNome: ${estado.nome}\nWhatsApp: ${estado.telefone}\nBarbeiro: ${estado.barbeiro}\nServiço: ${estado.servico}\nData: ${estado.dataDisplay}\nHorário: ${estado.horario}\n\nPrecisando cancelar? Acesse: ${linkCancelar}`
   );
   const url = `https://wa.me/${numero}?text=${mensagem}`;
   window.open(url, '_blank');
@@ -342,9 +360,9 @@ function abrirWhatsApp() {
 }
 
 function resetarAgendamento() {
-  estado = { barbeiro: null, barbeiroTel: null, servico: null, servicoPreco: null, data: null, dataDisplay: null, horario: null };
+  estado = { barbeiro: null, barbeiroTel: null, servico: null, servicoPreco: null, data: null, dataDisplay: null, horario: null, nome: null, telefone: null };
   document.querySelectorAll('.barbeiro-card').forEach(c => c.classList.remove('selected'));
-  document.getElementById('btn-confirmar').disabled    = false;
+  document.getElementById('btn-confirmar').disabled = false;
   document.getElementById('btn-confirmar').textContent = 'Confirmar e ir ao WhatsApp';
   irParaStep(1);
 }

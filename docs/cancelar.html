@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cancelar Agendamento – Studio Black</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --black: #0a0a0a;
+            --black2: #111;
+            --black3: #1a1a1a;
+            --gold: #d4a843;
+            --gold-lt: #f0c866;
+            --white: #f5f5f0;
+            --gray: #666;
+            --red: #e74c3c;
+            --green: #27ae60;
+        }
+
+        body {
+            background: var(--black);
+            color: var(--white);
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 300;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .box {
+            background: var(--black2);
+            border: 1px solid rgba(212, 168, 67, .2);
+            border-radius: 16px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 460px;
+            text-align: center;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, .6);
+            animation: up .4s cubic-bezier(.22, 1, .36, 1) both;
+        }
+
+        @keyframes up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 32px;
+        }
+
+        .l-s {
+            font-family: 'Bebas Neue';
+            font-size: 26px;
+            letter-spacing: 5px;
+            color: var(--white);
+        }
+
+        .l-b {
+            font-family: 'Bebas Neue';
+            font-size: 26px;
+            letter-spacing: 5px;
+            color: var(--gold);
+        }
+
+        /* Estados */
+        .estado {
+            display: none;
+        }
+
+        .estado.ativo {
+            display: block;
+        }
+
+        /* Loading */
+        .spin-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--gray);
+            padding: 20px 0;
+        }
+
+        .spin {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(212, 168, 67, .2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Card agendamento */
+        .ag-card {
+            background: var(--black3);
+            border: 1px solid rgba(212, 168, 67, .2);
+            border-radius: 10px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: left;
+        }
+
+        .ag-linha {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .05);
+            font-size: 14px;
+        }
+
+        .ag-linha:last-child {
+            border: none;
+        }
+
+        .ag-linha span {
+            color: var(--gray);
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .ag-linha strong {
+            color: var(--white);
+        }
+
+        h2 {
+            font-family: 'Playfair Display';
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        p {
+            font-size: 14px;
+            color: var(--gray);
+            margin-bottom: 4px;
+            line-height: 1.6;
+        }
+
+        .btn-cancelar {
+            width: 100%;
+            background: var(--red);
+            color: #fff;
+            font-family: 'DM Sans';
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 6px;
+            padding: 16px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity .2s ease, transform .2s ease;
+        }
+
+        .btn-cancelar:hover {
+            opacity: .85;
+            transform: translateY(-1px);
+        }
+
+        .btn-voltar {
+            display: inline-block;
+            margin-top: 16px;
+            color: var(--gray);
+            font-size: 13px;
+            text-decoration: none;
+            transition: color .2s ease;
+        }
+
+        .btn-voltar:hover {
+            color: var(--white);
+        }
+
+        /* Sucesso */
+        .icone-ok {
+            font-size: 52px;
+            margin-bottom: 16px;
+        }
+
+        .msg-ok {
+            font-size: 15px;
+            color: var(--green);
+            margin-bottom: 8px;
+        }
+
+        /* Erro */
+        .icone-err {
+            font-size: 52px;
+            margin-bottom: 16px;
+        }
+
+        .msg-err {
+            font-size: 15px;
+            color: var(--red);
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <div class="logo">
+            <span class="l-s">STUDIO</span>
+            <span class="l-b">BLACK</span>
+        </div>
+
+        <!-- Loading -->
+        <div id="est-loading" class="estado ativo">
+            <div class="spin-wrap">
+                <div class="spin"></div> Buscando agendamento…
+            </div>
+        </div>
+
+        <!-- Confirmar cancelamento -->
+        <div id="est-confirmar" class="estado">
+            <h2>Cancelar Agendamento</h2>
+            <p>Confira seus dados e confirme o cancelamento:</p>
+            <div class="ag-card" id="ag-info"></div>
+            <button class="btn-cancelar" onclick="confirmarCancelamento()">✕ Confirmar Cancelamento</button>
+            <br>
+            <a href="index.html" class="btn-voltar">← Não cancelar, voltar ao site</a>
+        </div>
+
+        <!-- Sucesso -->
+        <div id="est-sucesso" class="estado">
+            <div class="icone-ok">✅</div>
+            <h2>Cancelado!</h2>
+            <p class="msg-ok">Seu agendamento foi cancelado com sucesso.</p>
+            <p>Se quiser remarcar, acesse o site e escolha um novo horário.</p>
+            <br>
+            <a href="index.html" class="btn-voltar">← Voltar ao site</a>
+        </div>
+
+        <!-- Erro -->
+        <div id="est-erro" class="estado">
+            <div class="icone-err">❌</div>
+            <h2>Não encontrado</h2>
+            <p class="msg-err" id="msg-erro">Agendamento não encontrado ou já cancelado.</p>
+            <br>
+            <a href="index.html" class="btn-voltar">← Voltar ao site</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        let agendamentoId = null;
+
+        function mostrar(id) {
+            document.querySelectorAll('.estado').forEach(e => e.classList.remove('ativo'));
+            document.getElementById(id).classList.add('ativo');
+        }
+
+        function formatarData(iso) {
+            const [ano, mes, dia] = iso.split('-');
+            const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            const d = new Date(iso + 'T00:00:00');
+            return `${dias[d.getDay()]}, ${dia}/${mes}/${ano}`;
+        }
+
+        async function carregarAgendamento() {
+            const params = new URLSearchParams(window.location.search);
+            agendamentoId = params.get('id');
+
+            if (!agendamentoId) {
+                mostrar('est-erro');
+                document.getElementById('msg-erro').textContent = 'Link de cancelamento inválido.';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/cancelar/${agendamentoId}`);
+                if (!res.ok) {
+                    const json = await res.json();
+                    mostrar('est-erro');
+                    document.getElementById('msg-erro').textContent = json.erro || 'Agendamento não encontrado.';
+                    return;
+                }
+                const ag = await res.json();
+                document.getElementById('ag-info').innerHTML = `
+          <div class="ag-linha"><span>Nome</span><strong>${ag.nome || '—'}</strong></div>
+          <div class="ag-linha"><span>Barbeiro</span><strong>${ag.barbeiro}</strong></div>
+          <div class="ag-linha"><span>Serviço</span><strong>${ag.servico}</strong></div>
+          <div class="ag-linha"><span>Data</span><strong>${formatarData(ag.data)}</strong></div>
+          <div class="ag-linha"><span>Horário</span><strong>${ag.horario.slice(0, 5)}</strong></div>
+        `;
+                mostrar('est-confirmar');
+            } catch (e) {
+                mostrar('est-erro');
+                document.getElementById('msg-erro').textContent = 'Erro ao conectar ao servidor.';
+            }
+        }
+
+        async function confirmarCancelamento() {
+            try {
+                const res = await fetch(`${API_BASE}/cancelar/${agendamentoId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    mostrar('est-sucesso');
+                } else {
+                    const json = await res.json();
+                    mostrar('est-erro');
+                    document.getElementById('msg-erro').textContent = json.erro || 'Erro ao cancelar.';
+                }
+            } catch (e) {
+                mostrar('est-erro');
+                document.getElementById('msg-erro').textContent = 'Erro ao conectar ao servidor.';
+            }
+        }
+
+        carregarAgendamento();
+    </script>
+</body>
+
+</html>
