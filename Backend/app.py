@@ -1,17 +1,35 @@
 # =============================================
 #  STUDIO BLACK – app.py
-#  Backend Flask com MySQL
+#  Backend Flask com MySQL + serve frontend
 # =============================================
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from db import get_connection
 import logging
+import os
 
-app = Flask(__name__)
-CORS(app)  # Permite requisições do frontend
+app = Flask(__name__, static_folder='docs', static_url_path='')
+CORS(app)
 
 logging.basicConfig(level=logging.INFO)
+
+
+# ──────────────────────────────────────────
+#  FRONTEND – Servir arquivos estáticos
+# ──────────────────────────────────────────
+@app.route('/')
+def index():
+    return send_from_directory('docs', 'index.html')
+
+@app.route('/admin')
+def admin():
+    return send_from_directory('docs', 'admin.html')
+
+@app.route('/cancelar')
+def cancelar_page():
+    return send_from_directory('docs', 'cancelar.html')
+
 
 # ──────────────────────────────────────────
 #  GET /horarios
@@ -38,7 +56,6 @@ def get_horarios():
             (barbeiro, data)
         )
         rows = cursor.fetchall()
-        # Converte timedelta/time para string "HH:MM:SS"
         ocupados = []
         for row in rows:
             h = row[0]
@@ -84,8 +101,6 @@ def agendar():
 
     try:
         cursor = conn.cursor()
-
-        # Verificar conflito
         cursor.execute(
             'SELECT id FROM agendamentos WHERE barbeiro = %s AND data = %s AND horario = %s',
             (barbeiro, data, horario)
@@ -95,7 +110,6 @@ def agendar():
         if existente:
             return jsonify({'erro': 'Este horário já está reservado para este barbeiro. Escolha outro horário.'}), 409
 
-        # Inserir agendamento
         cursor.execute(
             'INSERT INTO agendamentos (barbeiro, servico, data, horario, nome, telefone) VALUES (%s, %s, %s, %s, %s, %s)',
             (barbeiro, servico, data, horario, nome, telefone)
@@ -122,12 +136,8 @@ def health():
     return jsonify({'status': 'ok', 'app': 'Studio Black API'}), 200
 
 
-
-
 # ──────────────────────────────────────────
 #  GET /admin/agendamentos
-#  Retorna agendamentos de um barbeiro em uma data.
-#  Query params: barbeiro, data (YYYY-MM-DD)
 # ──────────────────────────────────────────
 @app.route('/admin/agendamentos', methods=['GET'])
 def admin_agendamentos():
@@ -152,7 +162,6 @@ def admin_agendamentos():
         )
         cursor.execute(sql, (barbeiro, data))
         rows = cursor.fetchall()
-        # Converter data para string
         for r in rows:
             if hasattr(r['data'], 'isoformat'):
                 r['data'] = r['data'].isoformat()
@@ -166,13 +175,10 @@ def admin_agendamentos():
 
 # ──────────────────────────────────────────
 #  GET /admin/historico
-#  Retorna todos os agendamentos de um barbeiro,
-#  opcionalmente filtrado por data.
-#  Query params: barbeiro, data (opcional)
 # ──────────────────────────────────────────
 @app.route('/admin/historico', methods=['GET'])
 def admin_historico():
-    barbeiro   = request.args.get('barbeiro', '').strip()
+    barbeiro    = request.args.get('barbeiro', '').strip()
     data_filtro = request.args.get('data', '').strip()
 
     if not barbeiro:
@@ -215,11 +221,8 @@ def admin_historico():
         conn.close()
 
 
-
 # ──────────────────────────────────────────
 #  DELETE /admin/cancelar/<id>
-#  Cancela (deleta) um agendamento pelo ID.
-#  Usado pelo barbeiro no painel admin.
 # ──────────────────────────────────────────
 @app.route('/admin/cancelar/<int:agendamento_id>', methods=['DELETE'])
 def admin_cancelar(agendamento_id):
@@ -228,11 +231,7 @@ def admin_cancelar(agendamento_id):
         return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
     try:
         cursor = conn.cursor(dictionary=True)
-        # Buscar agendamento antes de deletar (para retornar dados pro WhatsApp)
-        cursor.execute(
-            'SELECT * FROM agendamentos WHERE id = %s',
-            (agendamento_id,)
-        )
+        cursor.execute('SELECT * FROM agendamentos WHERE id = %s', (agendamento_id,))
         ag = cursor.fetchone()
         if not ag:
             return jsonify({'erro': 'Agendamento não encontrado.'}), 404
@@ -240,7 +239,6 @@ def admin_cancelar(agendamento_id):
         cursor.execute('DELETE FROM agendamentos WHERE id = %s', (agendamento_id,))
         conn.commit()
 
-        # Converter data para string
         if hasattr(ag['data'], 'isoformat'):
             ag['data'] = ag['data'].isoformat()
         horario = ag['horario']
@@ -263,9 +261,7 @@ def admin_cancelar(agendamento_id):
 
 
 # ──────────────────────────────────────────
-#  GET /cancelar/<id>
-#  Página de cancelamento pelo cliente.
-#  Retorna dados do agendamento para confirmar.
+#  GET /cancelar/<id>  – cliente ver agendamento
 # ──────────────────────────────────────────
 @app.route('/cancelar/<int:agendamento_id>', methods=['GET'])
 def cliente_ver_cancelamento(agendamento_id):
@@ -296,8 +292,7 @@ def cliente_ver_cancelamento(agendamento_id):
 
 
 # ──────────────────────────────────────────
-#  DELETE /cancelar/<id>
-#  Confirma cancelamento pelo cliente.
+#  DELETE /cancelar/<id>  – cliente confirmar
 # ──────────────────────────────────────────
 @app.route('/cancelar/<int:agendamento_id>', methods=['DELETE'])
 def cliente_cancelar(agendamento_id):
@@ -320,11 +315,9 @@ def cliente_cancelar(agendamento_id):
     finally:
         conn.close()
 
+
 # ──────────────────────────────────────────
 #  GET /bloqueios
-#  Retorna horários bloqueados pelo barbeiro
-#  em uma data específica.
-#  Query params: barbeiro, data (YYYY-MM-DD)
 # ──────────────────────────────────────────
 @app.route('/bloqueios', methods=['GET'])
 def get_bloqueios():
@@ -365,8 +358,6 @@ def get_bloqueios():
 
 # ──────────────────────────────────────────
 #  POST /admin/bloquear
-#  Bloqueia um horário para um barbeiro.
-#  Body JSON: barbeiro, data, horario
 # ──────────────────────────────────────────
 @app.route('/admin/bloquear', methods=['POST'])
 def admin_bloquear():
@@ -387,7 +378,6 @@ def admin_bloquear():
 
     try:
         cursor = conn.cursor()
-        # Verificar se já existe agendamento nesse horário
         cursor.execute(
             'SELECT id FROM agendamentos WHERE barbeiro = %s AND data = %s AND horario = %s',
             (barbeiro, data, horario)
@@ -395,7 +385,6 @@ def admin_bloquear():
         if cursor.fetchone():
             return jsonify({'erro': 'Já existe um agendamento neste horário.'}), 409
 
-        # Verificar se já está bloqueado
         cursor.execute(
             'SELECT id FROM horarios_bloqueados WHERE barbeiro = %s AND data = %s AND horario = %s',
             (barbeiro, data, horario)
@@ -420,8 +409,6 @@ def admin_bloquear():
 
 # ──────────────────────────────────────────
 #  DELETE /admin/bloquear
-#  Remove bloqueio de um horário.
-#  Body JSON: barbeiro, data, horario
 # ──────────────────────────────────────────
 @app.route('/admin/bloquear', methods=['DELETE'])
 def admin_desbloquear():
@@ -454,8 +441,6 @@ def admin_desbloquear():
 
 # ──────────────────────────────────────────
 #  GET /admin/bloqueios
-#  Lista todos os bloqueios de um barbeiro
-#  em uma data. Query params: barbeiro, data
 # ──────────────────────────────────────────
 @app.route('/admin/bloqueios', methods=['GET'])
 def admin_listar_bloqueios():
@@ -494,6 +479,5 @@ def admin_listar_bloqueios():
 
 
 if __name__ == '__main__':
-    import os
     port = int(os.getenv('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)

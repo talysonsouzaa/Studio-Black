@@ -1,12 +1,12 @@
 /* =============================================
-   STUDIO BLACK – admin.js
-   =============================================
+STUDIO BLACK – admin.js
+=============================================
 
-   ⚠️  IMPORTANTE: Troque as senhas abaixo
-       antes de publicar o site!
+⚠️  IMPORTANTE: Troque as senhas abaixo
+   antes de publicar o site!
 */
 
-const API_BASE = 'http://localhost:5000'; // URL do backend
+const API_BASE = 'https://studioblack.up.railway.app';
 
 /* ── Senhas ── */
 const SENHAS = {
