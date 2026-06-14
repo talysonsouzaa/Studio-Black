@@ -30,6 +30,10 @@ def admin():
 def cancelar_page():
     return send_from_directory('.', 'cancelar.html')
 
+@app.route('/cancelar.html')
+def cancelar_html():
+    return send_from_directory('.', 'cancelar.html')
+
 
 # ──────────────────────────────────────────
 #  GET /horarios
