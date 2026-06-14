@@ -6,7 +6,11 @@ STUDIO BLACK – admin.js
    antes de publicar o site!
 */
 
+<<<<<<< HEAD
 const API_BASE = 'https://studioblack.up.railway.app';
+=======
+const API_BASE = 'https://studioblack.up.railway.app';  // URL do backend
+>>>>>>> 5976825faecaa2fc2bc8278fec1265487bd6a161
 
 /* ── Senhas ── */
 const SENHAS = {

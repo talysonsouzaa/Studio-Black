@@ -3,7 +3,11 @@
    ============================================= */
 
 /* ── Config ── */
+<<<<<<< HEAD
 const API_BASE = 'https://studioblack.up.railway.app'; // Altere para a URL do seu backend
+=======
+const API_BASE = 'https://studioblack.up.railway.app';  // Altere para a URL do seu backend
+>>>>>>> 5976825faecaa2fc2bc8278fec1265487bd6a161
 
 const SERVICOS = [
   { nome: 'Corte', preco: 'R$ 40' },
