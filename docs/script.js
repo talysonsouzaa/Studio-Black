@@ -3,7 +3,7 @@
    ============================================= */
 
 /* ── Config ── */
-const API_BASE = 'http://localhost:5000'; // Altere para a URL do seu backend
+const API_BASE = 'https://studioblack.up.railway.app';  // Altere para a URL do seu backend
 
 const SERVICOS = [
   { nome: 'Corte', preco: 'R$ 40' },
