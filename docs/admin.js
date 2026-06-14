@@ -618,3 +618,189 @@ function mostrarToast(msg, tipo) {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
 }
+
+/* ─────────────────────────────────────
+   BLOQUEIO DE HORÁRIOS (adicionar no admin.js)
+   Cole este bloco inteiro no seu admin.js
+───────────────────────────────────── */
+
+const SLOTS_BLOQUEIO = [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'
+];
+
+async function abrirModalBloqueio() {
+    const hoje = isoHoje();
+
+    // Criar modal
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-bloqueio-overlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.8);
+        display:flex;align-items:center;justify-content:center;z-index:9999;
+        animation:fadeIn .15s ease;
+    `;
+
+    overlay.innerHTML = `
+        <div style="
+            background:#1a1a1a;border:1px solid #333;border-radius:12px;
+            padding:28px 32px;max-width:480px;width:90%;
+            animation:slideUp .2s ease;max-height:90vh;overflow-y:auto;
+        ">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="color:#fff;font-family:'Bebas Neue',sans-serif;font-size:22px;margin:0;letter-spacing:1px;">
+                    🔒 Bloquear Horários
+                </h3>
+                <button onclick="fecharModalBloqueio()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">✕</button>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="color:#888;font-size:13px;display:block;margin-bottom:6px;">Selecione a data:</label>
+                <input type="date" id="bloqueio-data" value="${hoje}" min="${hoje}"
+                    onchange="carregarHorariosBloqueio(this.value)"
+                    style="background:#111;border:1px solid #333;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;width:100%;font-family:'DM Sans',sans-serif;" />
+            </div>
+
+            <div id="bloqueio-slots" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;">
+                <div style="color:#666;font-size:13px;grid-column:1/-1;">Carregando...</div>
+            </div>
+
+            <div style="display:flex;gap:10px;">
+                <button onclick="fecharModalBloqueio()" style="
+                    flex:1;padding:10px;background:transparent;border:1px solid #333;
+                    border-radius:8px;color:#aaa;font-size:14px;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                ">Fechar</button>
+                <button onclick="salvarBloqueios()" style="
+                    flex:1;padding:10px;background:#d4a843;border:1px solid #d4a843;
+                    border-radius:8px;color:#000;font-size:14px;font-weight:600;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                ">💾 Salvar Bloqueios</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) fecharModalBloqueio(); });
+
+    await carregarHorariosBloqueio(hoje);
+}
+
+function fecharModalBloqueio() {
+    const overlay = document.getElementById('modal-bloqueio-overlay');
+    if (overlay) overlay.remove();
+}
+
+async function carregarHorariosBloqueio(data) {
+    const container = document.getElementById('bloqueio-slots');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color:#666;font-size:13px;grid-column:1/-1;">Carregando...</div>';
+
+    // Buscar agendamentos e bloqueios existentes
+    let agendados = [];
+    let bloqueados = [];
+
+    try {
+        const [resAg, resBloc] = await Promise.all([
+            fetch(`${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${data}`),
+            fetch(`${API_BASE}/admin/bloqueios?barbeiro=${enc(barbeiroLogado)}&data=${data}`)
+        ]);
+        if (resAg.ok) { const j = await resAg.json(); agendados = j.map(a => a.horario.slice(0, 5)); }
+        if (resBloc.ok) { const j = await resBloc.json(); bloqueados = j.bloqueados.map(h => h.slice(0, 5)); }
+    } catch (e) { }
+
+    container.innerHTML = '';
+
+    SLOTS_BLOQUEIO.forEach(slot => {
+        const temAgendamento = agendados.includes(slot);
+        const estaBloqueado = bloqueados.includes(slot);
+
+        const btn = document.createElement('button');
+        btn.dataset.slot = slot;
+        btn.dataset.bloqueado = estaBloqueado ? '1' : '0';
+
+        btn.style.cssText = `
+            padding:10px 6px;border-radius:8px;font-size:13px;cursor:pointer;
+            font-family:'DM Sans',sans-serif;font-weight:500;transition:all .15s;
+            ${temAgendamento
+                ? 'background:#1a2a1a;border:1px solid #2a4a2a;color:#4caf50;cursor:not-allowed;'
+                : estaBloqueado
+                    ? 'background:#3a1010;border:1px solid #e74c3c;color:#e74c3c;'
+                    : 'background:#1e1e1e;border:1px solid #333;color:#ccc;'
+            }
+        `;
+
+        btn.innerHTML = `
+            <div>${slot}</div>
+            <div style="font-size:10px;margin-top:2px;opacity:.7;">
+                ${temAgendamento ? '✓ Agendado' : estaBloqueado ? '🔒 Bloqueado' : 'Livre'}
+            </div>
+        `;
+
+        if (!temAgendamento) {
+            btn.onclick = () => toggleBloqueio(btn);
+        }
+
+        container.appendChild(btn);
+    });
+}
+
+function toggleBloqueio(btn) {
+    const bloqueado = btn.dataset.bloqueado === '1';
+    btn.dataset.bloqueado = bloqueado ? '0' : '1';
+
+    if (!bloqueado) {
+        btn.style.background = '#3a1010';
+        btn.style.borderColor = '#e74c3c';
+        btn.style.color = '#e74c3c';
+        btn.querySelector('div:last-child').textContent = '🔒 Bloqueado';
+    } else {
+        btn.style.background = '#1e1e1e';
+        btn.style.borderColor = '#333';
+        btn.style.color = '#ccc';
+        btn.querySelector('div:last-child').textContent = 'Livre';
+    }
+}
+
+async function salvarBloqueios() {
+    const data = document.getElementById('bloqueio-data').value;
+    const slots = document.querySelectorAll('#bloqueio-slots button[data-slot]');
+
+    let salvos = 0;
+    let erros = 0;
+
+    for (const btn of slots) {
+        const slot = btn.dataset.slot;
+        const deveBloqueado = btn.dataset.bloqueado === '1';
+
+        // Verificar estado atual no servidor
+        try {
+            if (deveBloqueado) {
+                const res = await fetch(`${API_BASE}/admin/bloquear`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barbeiro: barbeiroLogado, data, horario: slot + ':00' })
+                });
+                if (res.ok || res.status === 409) salvos++;
+                else erros++;
+            } else {
+                await fetch(`${API_BASE}/admin/bloquear`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barbeiro: barbeiroLogado, data, horario: slot + ':00' })
+                });
+                salvos++;
+            }
+        } catch (e) { erros++; }
+    }
+
+    fecharModalBloqueio();
+
+    if (erros === 0) {
+        mostrarToast('Bloqueios salvos com sucesso!', 'ok');
+    } else {
+        mostrarToast(`Salvos com ${erros} erro(s). Tente novamente.`, 'erro');
+    }
+}

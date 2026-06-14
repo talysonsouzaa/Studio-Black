@@ -64,6 +64,17 @@ def inicializar_banco():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
 
+        # Criar tabela de horários bloqueados
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS horarios_bloqueados (
+                id        INT AUTO_INCREMENT PRIMARY KEY,
+                barbeiro  VARCHAR(100) NOT NULL,
+                data      DATE         NOT NULL,
+                horario   TIME         NOT NULL,
+                UNIQUE KEY uq_bloqueio (barbeiro, data, horario)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
         conn.commit()
         # Adicionar colunas nome/telefone se ainda não existirem (migração)
         try:

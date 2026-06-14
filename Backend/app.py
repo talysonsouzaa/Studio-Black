@@ -320,5 +320,178 @@ def cliente_cancelar(agendamento_id):
     finally:
         conn.close()
 
+# ──────────────────────────────────────────
+#  GET /bloqueios
+#  Retorna horários bloqueados pelo barbeiro
+#  em uma data específica.
+#  Query params: barbeiro, data (YYYY-MM-DD)
+# ──────────────────────────────────────────
+@app.route('/bloqueios', methods=['GET'])
+def get_bloqueios():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    data     = request.args.get('data', '').strip()
+
+    if not barbeiro or not data:
+        return jsonify({'erro': 'Parâmetros obrigatórios: barbeiro, data.'}), 400
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT horario FROM horarios_bloqueados WHERE barbeiro = %s AND data = %s',
+            (barbeiro, data)
+        )
+        rows = cursor.fetchall()
+        bloqueados = []
+        for row in rows:
+            h = row[0]
+            if hasattr(h, 'seconds'):
+                total = h.seconds
+                hh = total // 3600
+                mm = (total % 3600) // 60
+                bloqueados.append(f'{hh:02d}:{mm:02d}:00')
+            else:
+                bloqueados.append(str(h))
+        return jsonify({'bloqueados': bloqueados}), 200
+    except Exception as e:
+        logging.error(f'Erro ao buscar bloqueios: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  POST /admin/bloquear
+#  Bloqueia um horário para um barbeiro.
+#  Body JSON: barbeiro, data, horario
+# ──────────────────────────────────────────
+@app.route('/admin/bloquear', methods=['POST'])
+def admin_bloquear():
+    dados = request.get_json()
+    if not dados:
+        return jsonify({'erro': 'Corpo inválido.'}), 400
+
+    barbeiro = dados.get('barbeiro', '').strip()
+    data     = dados.get('data', '').strip()
+    horario  = dados.get('horario', '').strip()
+
+    if not all([barbeiro, data, horario]):
+        return jsonify({'erro': 'Campos obrigatórios: barbeiro, data, horario.'}), 400
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+
+    try:
+        cursor = conn.cursor()
+        # Verificar se já existe agendamento nesse horário
+        cursor.execute(
+            'SELECT id FROM agendamentos WHERE barbeiro = %s AND data = %s AND horario = %s',
+            (barbeiro, data, horario)
+        )
+        if cursor.fetchone():
+            return jsonify({'erro': 'Já existe um agendamento neste horário.'}), 409
+
+        # Verificar se já está bloqueado
+        cursor.execute(
+            'SELECT id FROM horarios_bloqueados WHERE barbeiro = %s AND data = %s AND horario = %s',
+            (barbeiro, data, horario)
+        )
+        if cursor.fetchone():
+            return jsonify({'erro': 'Horário já está bloqueado.'}), 409
+
+        cursor.execute(
+            'INSERT INTO horarios_bloqueados (barbeiro, data, horario) VALUES (%s, %s, %s)',
+            (barbeiro, data, horario)
+        )
+        conn.commit()
+        logging.info(f'Horário bloqueado: {barbeiro} | {data} | {horario}')
+        return jsonify({'mensagem': 'Horário bloqueado com sucesso.'}), 201
+    except Exception as e:
+        conn.rollback()
+        logging.error(f'Erro ao bloquear: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  DELETE /admin/bloquear
+#  Remove bloqueio de um horário.
+#  Body JSON: barbeiro, data, horario
+# ──────────────────────────────────────────
+@app.route('/admin/bloquear', methods=['DELETE'])
+def admin_desbloquear():
+    dados = request.get_json()
+    if not dados:
+        return jsonify({'erro': 'Corpo inválido.'}), 400
+
+    barbeiro = dados.get('barbeiro', '').strip()
+    data     = dados.get('data', '').strip()
+    horario  = dados.get('horario', '').strip()
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'DELETE FROM horarios_bloqueados WHERE barbeiro = %s AND data = %s AND horario = %s',
+            (barbeiro, data, horario)
+        )
+        conn.commit()
+        return jsonify({'mensagem': 'Bloqueio removido com sucesso.'}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  GET /admin/bloqueios
+#  Lista todos os bloqueios de um barbeiro
+#  em uma data. Query params: barbeiro, data
+# ──────────────────────────────────────────
+@app.route('/admin/bloqueios', methods=['GET'])
+def admin_listar_bloqueios():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    data     = request.args.get('data', '').strip()
+
+    if not barbeiro or not data:
+        return jsonify({'erro': 'Parâmetros obrigatórios: barbeiro, data.'}), 400
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT horario FROM horarios_bloqueados WHERE barbeiro = %s AND data = %s ORDER BY horario ASC',
+            (barbeiro, data)
+        )
+        rows = cursor.fetchall()
+        bloqueados = []
+        for row in rows:
+            h = row[0]
+            if hasattr(h, 'seconds'):
+                total = h.seconds
+                hh = total // 3600
+                mm = (total % 3600) // 60
+                bloqueados.append(f'{hh:02d}:{mm:02d}:00')
+            else:
+                bloqueados.append(str(h))
+        return jsonify({'bloqueados': bloqueados}), 200
+    except Exception as e:
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

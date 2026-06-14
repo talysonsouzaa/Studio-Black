@@ -140,7 +140,7 @@ function renderizarCalendario() {
 
   const hoje = new Date();
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 30; i++) {
     const d = new Date(hoje);
     d.setDate(hoje.getDate() + i);
 
@@ -204,16 +204,16 @@ async function carregarHorarios() {
   // Filtrar até 17:30 (último slot)
   const todosSlots = slots.filter(s => s <= '17:30');
 
-  /* Buscar horários ocupados no backend */
+  /* Buscar horários ocupados e bloqueados no backend */
   let ocupados = [];
+  let bloqueados = [];
   try {
-    const res = await fetch(
-      `${API_BASE}/horarios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`
-    );
-    if (res.ok) {
-      const json = await res.json();
-      ocupados = json.ocupados || [];
-    }
+    const [resOcup, resBloc] = await Promise.all([
+      fetch(`${API_BASE}/horarios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`),
+      fetch(`${API_BASE}/bloqueios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`)
+    ]);
+    if (resOcup.ok) { const j = await resOcup.json(); ocupados = j.ocupados || []; }
+    if (resBloc.ok) { const j = await resBloc.json(); bloqueados = j.bloqueados || []; }
   } catch (err) {
     console.warn('Backend indisponível – mostrando todos os horários.');
   }
@@ -232,11 +232,13 @@ async function carregarHorarios() {
 
     const jaPAssou = isHoje && (sh < agora.getHours() || (sh === agora.getHours() && sm <= agora.getMinutes()));
     const ocupado = ocupados.includes(slot + ':00') || ocupados.includes(slot);
+    const bloqueado = bloqueados.includes(slot + ':00') || bloqueados.includes(slot);
 
-    if (jaPAssou || ocupado) {
+    if (jaPAssou || ocupado || bloqueado) {
       btn.disabled = true;
       if (ocupado) btn.title = 'Horário já agendado';
       if (jaPAssou) btn.title = 'Horário já passou';
+      if (bloqueado) { btn.title = 'Horário indisponível'; btn.classList.add('bloqueado'); }
     } else {
       btn.addEventListener('click', () => selecionarHorario(btn, slot));
     }

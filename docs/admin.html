@@ -84,6 +84,22 @@
             filter: invert(0.6);
             cursor: pointer;
         }
+
+        .btn-bloquear {
+            background: transparent;
+            border: 1px solid #d4a84355;
+            color: #d4a843;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: background .15s;
+        }
+
+        .btn-bloquear:hover {
+            background: #2a2010;
+        }
     </style>
 </head>
 
@@ -151,6 +167,9 @@
                 <span class="topbar-status">Online</span>
             </div>
             <div class="topbar-actions">
+                <button class="btn-bloquear" onclick="abrirModalBloqueio()" title="Bloquear horários">
+                    🔒 Bloquear
+                </button>
                 <button class="btn-atualizar" onclick="atualizarPainel()" title="Atualizar dados">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="23 4 23 10 17 10" />
