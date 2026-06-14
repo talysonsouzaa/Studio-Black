@@ -5,11 +5,12 @@
 
 import mysql.connector
 import logging
+import os
 
 # ── Configurações de conexão ──
 # Altere conforme seu ambiente MySQL
 DB_CONFIG = {
-    'host':     'localhost',
+    'host': os.getenv('DB_HOST', 'localhost'),
     'port':     3306,
     'user':     'root',          # Seu usuário MySQL
     'password': '193473202@Ta',     # Sua senha MySQL
