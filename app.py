@@ -3,11 +3,12 @@
 #  Backend Flask com MySQL + serve frontend
 # =============================================
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from db import get_connection
 import logging
 import os
+
 
 app = Flask(__name__, static_folder='docs', static_url_path='')
 CORS(app)
