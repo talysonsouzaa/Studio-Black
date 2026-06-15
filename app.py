@@ -10,7 +10,7 @@ import logging
 import os
 
 
-app = Flask(__name__, static_folder='docs', static_url_path='')
+app = Flask(__name__, static_folder='', static_url_path='')
 CORS(app)
 
 logging.basicConfig(level=logging.INFO)
