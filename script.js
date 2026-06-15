@@ -5,8 +5,7 @@
 /* ── Config ── */
 const API_BASE = 'https://studioblack.up.railway.app'; // Altere para a URL do seu backend
 
-/* ── Serviços (carregados do backend; fallback local) ── */
-let SERVICOS = [
+const SERVICOS = [
   { nome: 'Corte', preco: 'R$ 40' },
   { nome: 'Cabelo e Barba (COMBO)', preco: 'R$ 80' },
   { nome: 'Luzes + Corte', preco: 'R$ 150' },
@@ -19,21 +18,6 @@ let SERVICOS = [
   { nome: 'Acabamento Pezinho', preco: 'R$ 15' },
   { nome: 'Barboterapia', preco: 'R$ 40' },
 ];
-
-async function carregarServicos() {
-  try {
-    const res = await fetch(`${API_BASE}/servicos`);
-    if (res.ok) {
-      const lista = await res.json();
-      SERVICOS = lista.map(s => ({
-        nome: s.nome,
-        preco: `R$ ${Number.isInteger(s.preco) ? s.preco : s.preco.toFixed(2).replace('.', ',')}`,
-      }));
-    }
-  } catch (e) {
-    console.warn('Usando lista de serviços local (backend indisponível).');
-  }
-}
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIAS_SEMANA_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -53,7 +37,6 @@ let estado = {
    LOADER
 ───────────────────────────────────── */
 window.addEventListener('load', () => {
-  carregarServicos(); // busca serviços do backend em paralelo
   setTimeout(() => {
     document.getElementById('loader').classList.add('hidden');
     iniciarReveal();
