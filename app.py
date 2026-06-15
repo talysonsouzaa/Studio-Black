@@ -3,34 +3,78 @@
 #  Backend Flask com MySQL + serve frontend
 # =============================================
 
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from db import get_connection
 import logging
 import os
 
-
-app = Flask(__name__, static_folder='', static_url_path='')
+app = Flask(__name__, static_folder='docs', static_url_path='')
 CORS(app)
 
 logging.basicConfig(level=logging.INFO)
+
+# ── Serviços padrão (usados para popular a tabela na 1ª vez) ──
+SERVICOS_PADRAO = [
+    ('Corte', 40),
+    ('Cabelo e Barba (COMBO)', 80),
+    ('Luzes + Corte', 150),
+    ('Sobrancelhas', 15),
+    ('Feminino', 65),
+    ('Corte + Barba + Sobrancelha (COMBO)', 95),
+    ('Corte + Sobrancelha (PROMO)', 50),
+    ('Pai e Filho', 80),
+    ('Corte + Lavagem + Escova', 50),
+    ('Acabamento Pezinho', 15),
+    ('Barboterapia', 40),
+]
+
+def garantir_tabela_servicos():
+    """Cria a tabela de serviços e popula com os valores padrão se estiver vazia."""
+    conn = get_connection()
+    if conn is None:
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS servicos (
+                id        INT AUTO_INCREMENT PRIMARY KEY,
+                nome      VARCHAR(200) NOT NULL UNIQUE,
+                preco     DECIMAL(10,2) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        conn.commit()
+        cursor.execute("SELECT COUNT(*) FROM servicos")
+        total = cursor.fetchone()[0]
+        if total == 0:
+            cursor.executemany(
+                "INSERT IGNORE INTO servicos (nome, preco) VALUES (%s, %s)",
+                SERVICOS_PADRAO
+            )
+            conn.commit()
+            logging.info('Tabela servicos populada com dados padrão.')
+    except Exception as e:
+        logging.error(f'Erro ao criar tabela servicos: {e}')
+    finally:
+        conn.close()
+
+garantir_tabela_servicos()
 
 
 # ──────────────────────────────────────────
 #  FRONTEND – Servir arquivos estáticos
 # ──────────────────────────────────────────
-
 @app.route('/')
 def index():
-    return send_file('index.html')
+    return send_from_directory('docs', 'index.html')
 
 @app.route('/admin')
 def admin():
-    return send_file('admin.html')
+    return send_from_directory('docs', 'admin.html')
 
 @app.route('/cancelar')
 def cancelar_page():
-    return send_file('cancelar.html')
+    return send_from_directory('docs', 'cancelar.html')
 
 
 # ──────────────────────────────────────────
@@ -475,6 +519,98 @@ def admin_listar_bloqueios():
                 bloqueados.append(str(h))
         return jsonify({'bloqueados': bloqueados}), 200
     except Exception as e:
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+
+# ──────────────────────────────────────────
+#  GET /admin/servicos  – listar todos os serviços
+# ──────────────────────────────────────────
+@app.route('/admin/servicos', methods=['GET'])
+def admin_listar_servicos():
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, nome, preco FROM servicos ORDER BY id ASC")
+        rows = cursor.fetchall()
+        for r in rows:
+            r['preco'] = float(r['preco'])
+        return jsonify(rows), 200
+    except Exception as e:
+        logging.error(f'Erro ao listar servicos: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  PUT /admin/servicos/<id>  – editar nome e preço
+# ──────────────────────────────────────────
+@app.route('/admin/servicos/<int:servico_id>', methods=['PUT'])
+def admin_editar_servico(servico_id):
+    dados = request.get_json()
+    if not dados:
+        return jsonify({'erro': 'Corpo da requisição inválido.'}), 400
+
+    nome  = dados.get('nome', '').strip()
+    preco = dados.get('preco')
+
+    if not nome or preco is None:
+        return jsonify({'erro': 'Campos obrigatórios: nome, preco.'}), 400
+
+    try:
+        preco = float(preco)
+        if preco < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({'erro': 'Preço inválido.'}), 400
+
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM servicos WHERE id = %s", (servico_id,))
+        if not cursor.fetchone():
+            return jsonify({'erro': 'Serviço não encontrado.'}), 404
+
+        cursor.execute(
+            "UPDATE servicos SET nome = %s, preco = %s WHERE id = %s",
+            (nome, preco, servico_id)
+        )
+        conn.commit()
+        logging.info(f'Serviço {servico_id} atualizado: {nome} | R$ {preco}')
+        return jsonify({'mensagem': 'Serviço atualizado com sucesso!', 'id': servico_id, 'nome': nome, 'preco': preco}), 200
+    except Exception as e:
+        conn.rollback()
+        logging.error(f'Erro ao editar servico: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  GET /servicos  – rota pública para o frontend
+# ──────────────────────────────────────────
+@app.route('/servicos', methods=['GET'])
+def listar_servicos_publico():
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT nome, preco FROM servicos ORDER BY id ASC")
+        rows = cursor.fetchall()
+        for r in rows:
+            r['preco'] = float(r['preco'])
+        return jsonify(rows), 200
+    except Exception as e:
+        logging.error(f'Erro ao listar servicos publico: {e}')
         return jsonify({'erro': 'Erro interno.'}), 500
     finally:
         conn.close()
