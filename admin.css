@@ -695,8 +695,11 @@ body {
         padding: 36px 24px;
     }
 
+    /* Topbar vira 2 linhas no mobile */
     .topbar {
-        padding: 12px 16px;
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .topbar-logo .l-studio,
@@ -704,20 +707,116 @@ body {
         font-size: 15px;
     }
 
-    .painel-body {
-        padding: 24px 16px 40px;
+    /* Centro (nome do barbeiro) ocupa linha própria */
+    .topbar-center {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        font-size: 12px;
+        padding-top: 2px;
+        border-top: 1px solid rgba(255, 255, 255, .06);
     }
 
-    .ag-item {
-        grid-template-columns: 60px 1fr;
+    /* Botões ficam compactos e à direita */
+    .topbar-actions {
+        margin-left: auto;
+        gap: 6px;
     }
 
-    .ag-preco {
+    /* Esconde texto dos botões, mostra só emoji no mobile */
+    .btn-bloquear {
+        font-size: 16px;
+        padding: 6px 10px;
+    }
+
+    /* Esconde o texto "Bloquear" e "Serviços", mantém emoji */
+    .btn-bloquear span.btn-texto {
         display: none;
     }
 
+    .btn-atualizar {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+
+    /* Esconde texto "Atualizar", mantém ícone SVG */
+    .btn-atualizar .btn-texto {
+        display: none;
+    }
+
+    .btn-sair {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+
+    .painel-body {
+        padding: 20px 12px 40px;
+    }
+
+    /* KPIs em 2 colunas no mobile */
+    .kpis-section {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px;
+    }
+
+    .kpi-card {
+        padding: 14px !important;
+    }
+
     .kpi-valor {
-        font-size: 24px;
+        font-size: 22px !important;
+    }
+
+    .kpi-valor.sm {
+        font-size: 13px !important;
+    }
+
+    /* Agenda item em coluna no mobile */
+    .ag-item {
+        grid-template-columns: 56px 1fr;
+        gap: 12px;
+        padding: 14px 14px;
+    }
+
+    .ag-acoes {
+        grid-column: 2;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .ag-preco {
+        font-size: 18px;
+    }
+
+    /* Section header empilha no mobile */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 10px;
+    }
+
+    .nav-data-wrap {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    #input-data-agenda {
+        flex: 1;
+    }
+
+    .filtro-wrap {
+        width: 100%;
+    }
+
+    .filtro-wrap input[type="date"] {
+        flex: 1;
+    }
+
+    /* Resumo histórico em coluna */
+    .resumo-hist {
+        flex-direction: column;
+        gap: 12px;
     }
 }
 

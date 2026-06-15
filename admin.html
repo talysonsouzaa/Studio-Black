@@ -167,8 +167,12 @@
                 <span class="topbar-status">Online</span>
             </div>
             <div class="topbar-actions">
+                <button class="btn-bloquear" onclick="abrirModalServicos()" title="Editar serviços e preços"
+                    style="border-color:#d4a84355;color:#d4a843;">
+                    ✏️ <span class="btn-texto">Serviços</span>
+                </button>
                 <button class="btn-bloquear" onclick="abrirModalBloqueio()" title="Bloquear horários">
-                    🔒 Bloquear
+                    🔒 <span class="btn-texto">Bloquear</span>
                 </button>
                 <button class="btn-atualizar" onclick="atualizarPainel()" title="Atualizar dados">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -176,7 +180,7 @@
                         <polyline points="1 20 1 14 7 14" />
                         <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
                     </svg>
-                    Atualizar
+                    <span class="btn-texto">Atualizar</span>
                 </button>
                 <button class="btn-sair" onclick="fazerLogout()">Sair</button>
             </div>

@@ -2,16 +2,15 @@
 STUDIO BLACK – admin.js
 =============================================
 
-⚠️  IMPORTANTE: Troque as senhas abaixo
-   antes de publicar o site!
+
 */
 
 const API_BASE = 'https://studioblack.up.railway.app';
 
 /* ── Senhas ── */
 const SENHAS = {
-    'Borel Barber': 'borel2024',
-    'Junior Barber': 'junior2024',
+    'Borel Barber': 'borel2026',
+    'Junior Barber': 'junior2026',
 };
 
 /* ── Preços (para calcular faturamento) ── */
