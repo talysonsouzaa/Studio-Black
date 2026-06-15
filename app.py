@@ -18,17 +18,18 @@ logging.basicConfig(level=logging.INFO)
 # ──────────────────────────────────────────
 #  FRONTEND – Servir arquivos estáticos
 # ──────────────────────────────────────────
+
 @app.route('/')
 def index():
-    return send_from_directory('docs', 'index.html')
+    return send_file('index.html')
 
 @app.route('/admin')
 def admin():
-    return send_from_directory('docs', 'admin.html')
+    return send_file('admin.html')
 
 @app.route('/cancelar')
 def cancelar_page():
-    return send_from_directory('docs', 'cancelar.html')
+    return send_file('cancelar.html')
 
 
 # ──────────────────────────────────────────
