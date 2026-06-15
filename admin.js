@@ -1,21 +1,18 @@
 /* =============================================
 STUDIO BLACK – admin.js
 =============================================
-
-⚠️  IMPORTANTE: Troque as senhas abaixo
-   antes de publicar o site!
 */
 
 const API_BASE = 'https://studioblack.up.railway.app';
 
 /* ── Senhas ── */
 const SENHAS = {
-    'Borel Barber': 'borel2024',
-    'Junior Barber': 'junior2024',
+    'Borel Barber': 'borel2026',
+    'Junior Barber': 'junior2026',
 };
 
-/* ── Preços (para calcular faturamento) ── */
-const PRECOS = {
+/* ── Preços dinâmicos (atualizados do backend) ── */
+let PRECOS = {
     'Corte': 40,
     'Cabelo e Barba (COMBO)': 80,
     'Luzes + Corte': 150,
@@ -28,6 +25,7 @@ const PRECOS = {
     'Acabamento Pezinho': 15,
     'Barboterapia': 40,
 };
+let SERVICOS_DB = []; // lista completa vinda do banco
 
 const TOTAL_SLOTS_DIA = 18; // 09:00 a 17:30 de 30 em 30min
 
@@ -138,8 +136,10 @@ function abrirPainel() {
     }
 
     atualizarLabelData();
-    carregarAgendaHoje();
-    carregarHistorico();
+    carregarServicosDoBackend().then(() => {
+        carregarAgendaHoje();
+        carregarHistorico();
+    });
 }
 
 function atualizarLabelData() {
@@ -620,6 +620,151 @@ function mostrarToast(msg, tipo) {
 }
 
 /* ─────────────────────────────────────
+   SERVIÇOS – Carregar do Backend
+───────────────────────────────────── */
+async function carregarServicosDoBackend() {
+    try {
+        const res = await fetch(`${API_BASE}/admin/servicos`);
+        if (res.ok) {
+            const lista = await res.json();
+            SERVICOS_DB = lista;
+            // Atualizar PRECOS com os valores do banco
+            lista.forEach(s => { PRECOS[s.nome] = s.preco; });
+        }
+    } catch (e) {
+        console.warn('Não foi possível carregar serviços do backend. Usando valores locais.');
+    }
+}
+
+/* ─────────────────────────────────────
+   MODAL – Editar Serviços
+───────────────────────────────────── */
+async function abrirModalServicos() {
+    // Garantir que temos os serviços do banco
+    if (SERVICOS_DB.length === 0) await carregarServicosDoBackend();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-servicos-overlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.82);
+        display:flex;align-items:center;justify-content:center;z-index:9999;
+        animation:fadeIn .15s ease;
+    `;
+
+    const linhas = SERVICOS_DB.map(s => `
+        <div class="srv-linha" data-id="${s.id}" style="
+            display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;
+            padding:10px 0;border-bottom:1px solid #222;
+        ">
+            <input class="srv-nome" type="text" value="${s.nome.replace(/"/g, '&quot;')}" style="
+                background:#111;border:1px solid #333;color:#fff;border-radius:6px;
+                padding:7px 10px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;
+            " />
+            <div style="display:flex;align-items:center;gap:4px;">
+                <span style="color:#888;font-size:13px;">R$</span>
+                <input class="srv-preco" type="number" min="0" step="0.01" value="${s.preco}" style="
+                    background:#111;border:1px solid #333;color:#d4a843;border-radius:6px;
+                    padding:7px 8px;font-size:13px;font-family:'DM Sans',sans-serif;width:72px;
+                " />
+            </div>
+            <button onclick="salvarServico(${s.id}, this)" style="
+                background:#d4a84322;border:1px solid #d4a84355;color:#d4a843;
+                border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;
+                font-family:'DM Sans',sans-serif;transition:background .15s;white-space:nowrap;
+            " onmouseover="this.style.background='#d4a84344'" onmouseout="this.style.background='#d4a84322'">
+                💾 Salvar
+            </button>
+        </div>
+    `).join('');
+
+    overlay.innerHTML = `
+        <div style="
+            background:#1a1a1a;border:1px solid #333;border-radius:12px;
+            padding:28px 32px;max-width:560px;width:92%;
+            animation:slideUp .2s ease;max-height:88vh;overflow-y:auto;
+        ">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h3 style="color:#fff;font-family:'Bebas Neue',sans-serif;font-size:22px;margin:0;letter-spacing:1px;">
+                    ✏️ Editar Serviços e Preços
+                </h3>
+                <button onclick="fecharModalServicos()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">✕</button>
+            </div>
+            <p style="color:#666;font-size:12px;margin:0 0 18px;">
+                As alterações refletem no site de agendamento imediatamente.
+            </p>
+            <div id="srv-lista">${linhas}</div>
+            <button onclick="fecharModalServicos()" style="
+                width:100%;margin-top:20px;padding:11px;background:transparent;
+                border:1px solid #333;border-radius:8px;color:#aaa;font-size:14px;
+                cursor:pointer;font-family:'DM Sans',sans-serif;
+            ">Fechar</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) fecharModalServicos(); });
+}
+
+function fecharModalServicos() {
+    const el = document.getElementById('modal-servicos-overlay');
+    if (el) el.remove();
+}
+
+async function salvarServico(id, btn) {
+    const linha = btn.closest('.srv-linha');
+    const nome  = linha.querySelector('.srv-nome').value.trim();
+    const preco = parseFloat(linha.querySelector('.srv-preco').value);
+
+    if (!nome || isNaN(preco) || preco < 0) {
+        mostrarToast('Nome e preço válidos são obrigatórios.', 'erro');
+        return;
+    }
+
+    const textoOriginal = btn.textContent;
+    btn.textContent = 'Salvando…';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/servicos/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, preco })
+        });
+
+        if (res.ok) {
+            // Atualizar cache local
+            const idx = SERVICOS_DB.findIndex(s => s.id === id);
+            if (idx !== -1) {
+                const nomeAntigo = SERVICOS_DB[idx].nome;
+                delete PRECOS[nomeAntigo];
+                SERVICOS_DB[idx] = { id, nome, preco };
+                PRECOS[nome] = preco;
+            }
+            btn.textContent = '✓ Salvo!';
+            btn.style.color = '#4caf50';
+            btn.style.borderColor = '#4caf50';
+            setTimeout(() => {
+                btn.textContent = textoOriginal;
+                btn.style.color = '#d4a843';
+                btn.style.borderColor = '#d4a84355';
+                btn.disabled = false;
+            }, 1800);
+            mostrarToast(`"${nome}" atualizado com sucesso!`, 'ok');
+        } else {
+            const j = await res.json();
+            mostrarToast(j.erro || 'Erro ao salvar. Tente novamente.', 'erro');
+            btn.textContent = textoOriginal;
+            btn.disabled = false;
+        }
+    } catch (e) {
+        mostrarToast('Erro ao conectar ao servidor.', 'erro');
+        btn.textContent = textoOriginal;
+        btn.disabled = false;
+    }
+}
+
+
+/* ─────────────────────────────────────
    BLOQUEIO DE HORÁRIOS (adicionar no admin.js)
    Cole este bloco inteiro no seu admin.js
 ───────────────────────────────────── */
@@ -627,7 +772,7 @@ function mostrarToast(msg, tipo) {
 const SLOTS_BLOQUEIO = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'
+    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
 ];
 
 async function abrirModalBloqueio() {
