@@ -66,15 +66,15 @@ garantir_tabela_servicos()
 # ──────────────────────────────────────────
 @app.route('/')
 def index():
-    return send_from_directory('docs', 'index.html')
+    return send_from_directory('', 'index.html')
 
 @app.route('/admin')
 def admin():
-    return send_from_directory('docs', 'admin.html')
+    return send_from_directory('', 'admin.html')
 
 @app.route('/cancelar')
 def cancelar_page():
-    return send_from_directory('docs', 'cancelar.html')
+    return send_from_directory('', 'cancelar.html')
 
 
 # ──────────────────────────────────────────
