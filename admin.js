@@ -28,16 +28,15 @@ let PRECOS = {
 };
 let SERVICOS_DB = []; // lista completa vinda do banco
 
-const TOTAL_SLOTS_DIA = 18; // 09:00 a 17:30 de 30 em 30min
+const TOTAL_SLOTS_DIA = 28; // 07:00 a 21:00 de 30 em 30min
 
-// Todos os slots possíveis do dia
+// Todos os slots possíveis do dia (07:00 até 21:00)
 const TODOS_SLOTS = [];
-for (let h = 9; h < 18; h++) {
+for (let h = 7; h <= 21; h++) {
     TODOS_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
-    TODOS_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+    if (h < 21) TODOS_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
 }
-// Garantir que vai até 17:30
-const SLOTS_DIA = TODOS_SLOTS.filter(s => s <= '17:30');
+const SLOTS_DIA = TODOS_SLOTS;
 
 let agendaHojeCache = []; // cache dos agendamentos do dia
 let dataAgendaAtual = null; // data sendo visualizada na agenda (definida no abrirPainel)
@@ -771,9 +770,11 @@ async function salvarServico(id, btn) {
 ───────────────────────────────────── */
 
 const SLOTS_BLOQUEIO = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'
+    '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+    '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
+    '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
+    '19:00', '19:30', '20:00', '20:30', '21:00'
 ];
 
 async function abrirModalBloqueio() {

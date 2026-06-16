@@ -195,14 +195,13 @@ async function carregarHorarios() {
   grid.innerHTML = '';
   loading.style.display = 'flex';
 
-  /* Gerar slots 09:00–17:30 de 30 em 30 min */
+  /* Gerar slots 07:00–21:00 de 30 em 30 min */
   const slots = [];
-  for (let h = 9; h < 18; h++) {
+  for (let h = 7; h <= 21; h++) {
     slots.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 17 || true) slots.push(`${String(h).padStart(2, '0')}:30`);
+    if (h < 21) slots.push(`${String(h).padStart(2, '0')}:30`);
   }
-  // Filtrar até 17:30 (último slot)
-  const todosSlots = slots.filter(s => s <= '17:30');
+  const todosSlots = slots;
 
   /* Buscar horários ocupados e bloqueados no backend */
   let ocupados = [];
