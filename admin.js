@@ -765,6 +765,164 @@ async function salvarServico(id, btn) {
 
 
 /* ─────────────────────────────────────
+   EXPEDIENTE – Modal de horários de trabalho
+───────────────────────────────────── */
+const DIAS_EXP = [
+    { key: 'segunda', label: 'Segunda-feira' },
+    { key: 'terca', label: 'Terça-feira' },
+    { key: 'quarta', label: 'Quarta-feira' },
+    { key: 'quinta', label: 'Quinta-feira' },
+    { key: 'sexta', label: 'Sexta-feira' },
+    { key: 'sabado', label: 'Sábado' },
+    { key: 'domingo', label: 'Domingo' },
+];
+
+async function abrirModalExpediente() {
+    // Buscar expediente atual do backend
+    let expediente = {};
+    try {
+        const res = await fetch(`${API_BASE}/admin/expediente?barbeiro=${enc(barbeiroLogado)}`);
+        if (res.ok) {
+            const lista = await res.json();
+            lista.forEach(d => { expediente[d.dia_semana] = d; });
+        }
+    } catch (e) { }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-expediente-overlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.82);
+        display:flex;align-items:center;justify-content:center;z-index:9999;
+        animation:fadeIn .15s ease;
+    `;
+
+    const linhas = DIAS_EXP.map(dia => {
+        const exp = expediente[dia.key] || { hora_inicio: '07:00:00', hora_fim: '21:00:00', fechado: dia.key === 'domingo' ? 1 : 0 };
+        const inicio = exp.hora_inicio ? exp.hora_inicio.slice(0, 5) : '07:00';
+        const fim = exp.hora_fim ? exp.hora_fim.slice(0, 5) : '21:00';
+        const fechado = exp.fechado ? 1 : 0;
+
+        // Gerar options de 07:00 a 21:00
+        const opts = [];
+        for (let h = 7; h <= 21; h++) {
+            opts.push(`${String(h).padStart(2, '0')}:00`);
+            if (h < 21) opts.push(`${String(h).padStart(2, '0')}:30`);
+        }
+        const optsIni = opts.map(o => `<option value="${o}" ${o === inicio ? 'selected' : ''}>${o}</option>`).join('');
+        const optsFim = opts.map(o => `<option value="${o}" ${o === fim ? 'selected' : ''}>${o}</option>`).join('');
+
+        return `
+        <div class="exp-linha" data-dia="${dia.key}" style="
+            display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:center;
+            padding:10px 0;border-bottom:1px solid #222;
+        ">
+            <span style="color:#ccc;font-size:13px;font-family:'DM Sans',sans-serif;">${dia.label}</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" class="exp-fechado" ${fechado ? 'checked' : ''} 
+                        onchange="toggleExpedienteDia(this)"
+                        style="accent-color:#e74c3c;width:14px;height:14px;" />
+                    <span style="color:#e74c3c;font-size:12px;">Fechado</span>
+                </label>
+                <div class="exp-horarios" style="${fechado ? 'opacity:.3;pointer-events:none;' : ''} display:flex;align-items:center;gap:6px;">
+                    <select class="exp-inicio" style="
+                        background:#111;border:1px solid #333;color:#d4a843;
+                        border-radius:6px;padding:5px 8px;font-size:13px;
+                        font-family:'DM Sans',sans-serif;cursor:pointer;
+                    ">${optsIni}</select>
+                    <span style="color:#666;font-size:12px;">até</span>
+                    <select class="exp-fim" style="
+                        background:#111;border:1px solid #333;color:#d4a843;
+                        border-radius:6px;padding:5px 8px;font-size:13px;
+                        font-family:'DM Sans',sans-serif;cursor:pointer;
+                    ">${optsFim}</select>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    overlay.innerHTML = `
+        <div style="
+            background:#1a1a1a;border:1px solid #333;border-radius:12px;
+            padding:28px 32px;max-width:580px;width:92%;
+            animation:slideUp .2s ease;max-height:90vh;overflow-y:auto;
+        ">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h3 style="color:#fff;font-family:'Bebas Neue',sans-serif;font-size:22px;margin:0;letter-spacing:1px;">
+                    ⏰ Meu Expediente
+                </h3>
+                <button onclick="fecharModalExpediente()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">✕</button>
+            </div>
+            <p style="color:#666;font-size:12px;margin:0 0 18px;">
+                Defina seu horário de trabalho por dia da semana. Os clientes só verão os horários dentro do seu expediente.
+            </p>
+            <div id="exp-lista">${linhas}</div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="fecharModalExpediente()" style="
+                    flex:1;padding:11px;background:transparent;border:1px solid #333;
+                    border-radius:8px;color:#aaa;font-size:14px;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                ">Fechar</button>
+                <button onclick="salvarExpediente()" style="
+                    flex:1;padding:11px;background:#d4a843;border:1px solid #d4a843;
+                    border-radius:8px;color:#000;font-size:14px;font-weight:600;cursor:pointer;
+                    font-family:'DM Sans',sans-serif;
+                ">💾 Salvar Expediente</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) fecharModalExpediente(); });
+}
+
+function fecharModalExpediente() {
+    const el = document.getElementById('modal-expediente-overlay');
+    if (el) el.remove();
+}
+
+function toggleExpedienteDia(checkbox) {
+    const linha = checkbox.closest('.exp-linha');
+    const horarios = linha.querySelector('.exp-horarios');
+    if (checkbox.checked) {
+        horarios.style.opacity = '.3';
+        horarios.style.pointerEvents = 'none';
+    } else {
+        horarios.style.opacity = '1';
+        horarios.style.pointerEvents = '';
+    }
+}
+
+async function salvarExpediente() {
+    const linhas = document.querySelectorAll('.exp-linha');
+    const dias = [];
+    linhas.forEach(linha => {
+        const dia_semana = linha.dataset.dia;
+        const fechado = linha.querySelector('.exp-fechado').checked ? 1 : 0;
+        const hora_inicio = linha.querySelector('.exp-inicio').value + ':00';
+        const hora_fim = linha.querySelector('.exp-fim').value + ':00';
+        dias.push({ dia_semana, hora_inicio, hora_fim, fechado });
+    });
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/expediente`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barbeiro: barbeiroLogado, dias })
+        });
+        if (res.ok) {
+            fecharModalExpediente();
+            mostrarToast('Expediente salvo com sucesso!', 'ok');
+        } else {
+            mostrarToast('Erro ao salvar. Tente novamente.', 'erro');
+        }
+    } catch (e) {
+        mostrarToast('Erro ao conectar ao servidor.', 'erro');
+    }
+}
+
+
+/* ─────────────────────────────────────
    BLOQUEIO DE HORÁRIOS (adicionar no admin.js)
    Cole este bloco inteiro no seu admin.js
 ───────────────────────────────────── */

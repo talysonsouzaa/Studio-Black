@@ -91,6 +91,7 @@ function selecionarBarbeiro(el) {
 
   estado.barbeiro = el.dataset.barbeiro;
   estado.barbeiroTel = el.dataset.tel;
+  expedienteCache = null; // limpar cache ao trocar de barbeiro
 
   // Aguarda pequeno delay para feedback visual
   setTimeout(() => {
@@ -132,20 +133,40 @@ function selecionarServico(el, servico) {
 }
 
 /* ─────────────────────────────────────
-   PASSO 3 – Data (próximos 7 dias)
+   PASSO 3 – Data (próximos 30 dias)
 ───────────────────────────────────── */
-function renderizarCalendario() {
-  const cal = document.getElementById('calendario');
-  cal.innerHTML = '';
+let expedienteCache = null;
 
+async function carregarExpedienteBarbeiro() {
+  try {
+    const res = await fetch(`${API_BASE}/expediente?barbeiro=${encodeURIComponent(estado.barbeiro)}`);
+    if (res.ok) {
+      const lista = await res.json();
+      expedienteCache = {};
+      lista.forEach(e => { expedienteCache[e.dia_semana] = e; });
+    }
+  } catch (e) { expedienteCache = null; }
+}
+
+const DIAS_SEMANA_KEY_CAL = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+
+async function renderizarCalendario() {
+  const cal = document.getElementById('calendario');
+  cal.innerHTML = '<div style="color:#888;font-size:13px;padding:12px;">Carregando...</div>';
+
+  await carregarExpedienteBarbeiro();
+
+  cal.innerHTML = '';
   const hoje = new Date();
 
   for (let i = 0; i < 30; i++) {
     const d = new Date(hoje);
     d.setDate(hoje.getDate() + i);
 
-    const diaSemana = d.getDay(); // 0=Dom
-    const isDomingo = diaSemana === 0;
+    const diaSemana = d.getDay();
+    const diaKey = DIAS_SEMANA_KEY_CAL[diaSemana];
+    const expDia = expedienteCache ? expedienteCache[diaKey] : null;
+    const isFechado = expDia ? !!expDia.fechado : (diaSemana === 0);
 
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -153,13 +174,13 @@ function renderizarCalendario() {
     const iso = `${yyyy}-${mm}-${dd}`;
 
     const card = document.createElement('div');
-    card.className = 'dia-card' + (isDomingo ? ' domingo' : '');
+    card.className = 'dia-card' + (isFechado ? ' domingo' : '');
     card.innerHTML = `
       <div class="dia-num">${dd}</div>
-      <div class="dia-nome">${isDomingo ? 'Fechado' : DIAS_SEMANA[diaSemana]}</div>
+      <div class="dia-nome">${isFechado ? 'Fechado' : DIAS_SEMANA[diaSemana]}</div>
     `;
 
-    if (!isDomingo) {
+    if (!isFechado) {
       card.addEventListener('click', () => selecionarData(card, iso, d));
     }
 
@@ -188,6 +209,8 @@ function selecionarData(el, iso, dateObj) {
 /* ─────────────────────────────────────
    PASSO 4 – Horários
 ───────────────────────────────────── */
+const DIAS_SEMANA_KEY = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+
 async function carregarHorarios() {
   const grid = document.getElementById('horarios-grid');
   const loading = document.getElementById('horarios-loading');
@@ -195,13 +218,40 @@ async function carregarHorarios() {
   grid.innerHTML = '';
   loading.style.display = 'flex';
 
-  /* Gerar slots 07:00–21:00 de 30 em 30 min */
-  const slots = [];
-  for (let h = 7; h <= 21; h++) {
-    slots.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 21) slots.push(`${String(h).padStart(2, '0')}:30`);
+  /* Buscar expediente do barbeiro para este dia da semana */
+  const dateObj = new Date(estado.data + 'T12:00:00');
+  const diaSemanaKey = DIAS_SEMANA_KEY[dateObj.getDay()];
+
+  let horaInicio = '07:00';
+  let horaFim = '21:00';
+  let diaFechado = false;
+
+  try {
+    const resExp = await fetch(`${API_BASE}/expediente?barbeiro=${encodeURIComponent(estado.barbeiro)}`);
+    if (resExp.ok) {
+      const expLista = await resExp.json();
+      const expDia = expLista.find(e => e.dia_semana === diaSemanaKey);
+      if (expDia) {
+        diaFechado = !!expDia.fechado;
+        horaInicio = expDia.hora_inicio ? expDia.hora_inicio.slice(0, 5) : '07:00';
+        horaFim = expDia.hora_fim ? expDia.hora_fim.slice(0, 5) : '21:00';
+      }
+    }
+  } catch (e) {
+    console.warn('Usando horário padrão (backend indisponível).');
   }
-  const todosSlots = slots;
+
+  /* Gerar slots dentro do expediente do barbeiro */
+  const todosSlots = [];
+  if (!diaFechado) {
+    const [hIni] = horaInicio.split(':').map(Number);
+    const [hFim] = horaFim.split(':').map(Number);
+    for (let h = hIni; h <= hFim; h++) {
+      const hh = String(h).padStart(2, '0');
+      if (`${hh}:00` <= horaFim) todosSlots.push(`${hh}:00`);
+      if (h < hFim) todosSlots.push(`${hh}:30`);
+    }
+  }
 
   /* Buscar horários ocupados e bloqueados no backend */
   let ocupados = [];
@@ -218,6 +268,11 @@ async function carregarHorarios() {
   }
 
   loading.style.display = 'none';
+
+  if (diaFechado || todosSlots.length === 0) {
+    grid.innerHTML = '<div style="color:#888;font-size:14px;text-align:center;padding:24px;grid-column:1/-1;">Este barbeiro não atende neste dia.</div>';
+    return;
+  }
 
   /* Horários passados no dia de hoje */
   const agora = new Date();

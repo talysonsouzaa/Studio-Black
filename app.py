@@ -61,6 +61,51 @@ def garantir_tabela_servicos():
 garantir_tabela_servicos()
 
 
+# ── Expediente padrão (07:00–21:00, Seg a Sáb) ──
+DIAS_SEMANA = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']
+
+def garantir_tabela_expediente():
+    """Cria tabela de expediente e popula com padrão 07:00-21:00 se vazia."""
+    conn = get_connection()
+    if conn is None:
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS expediente (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                barbeiro    VARCHAR(100) NOT NULL,
+                dia_semana  VARCHAR(20)  NOT NULL,
+                hora_inicio TIME         NOT NULL DEFAULT '07:00:00',
+                hora_fim    TIME         NOT NULL DEFAULT '21:00:00',
+                fechado     TINYINT(1)   NOT NULL DEFAULT 0,
+                UNIQUE KEY uq_exp (barbeiro, dia_semana)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        conn.commit()
+        cursor.execute("SELECT COUNT(*) FROM expediente")
+        total = cursor.fetchone()[0]
+        if total == 0:
+            barbeiros = ['Borel Barber', 'Junior Barber']
+            registros = []
+            for barb in barbeiros:
+                for dia in DIAS_SEMANA:
+                    fechado = 1 if dia == 'domingo' else 0
+                    registros.append((barb, dia, '07:00:00', '21:00:00', fechado))
+            cursor.executemany(
+                "INSERT IGNORE INTO expediente (barbeiro, dia_semana, hora_inicio, hora_fim, fechado) VALUES (%s,%s,%s,%s,%s)",
+                registros
+            )
+            conn.commit()
+            logging.info('Tabela expediente populada com padrão.')
+    except Exception as e:
+        logging.error(f'Erro ao criar tabela expediente: {e}')
+    finally:
+        conn.close()
+
+garantir_tabela_expediente()
+
+
 # ──────────────────────────────────────────
 #  FRONTEND – Servir arquivos estáticos
 # ──────────────────────────────────────────
@@ -611,6 +656,96 @@ def listar_servicos_publico():
         return jsonify(rows), 200
     except Exception as e:
         logging.error(f'Erro ao listar servicos publico: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+
+# ──────────────────────────────────────────
+#  GET /admin/expediente  – buscar expediente do barbeiro
+# ──────────────────────────────────────────
+@app.route('/admin/expediente', methods=['GET'])
+def admin_get_expediente():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    if not barbeiro:
+        return jsonify({'erro': 'Parâmetro obrigatório: barbeiro.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT dia_semana, CAST(hora_inicio AS CHAR) as hora_inicio, "
+            "CAST(hora_fim AS CHAR) as hora_fim, fechado "
+            "FROM expediente WHERE barbeiro = %s ORDER BY FIELD(dia_semana,"
+            "'domingo','segunda','terca','quarta','quinta','sexta','sabado')",
+            (barbeiro,)
+        )
+        rows = cursor.fetchall()
+        return jsonify(rows), 200
+    except Exception as e:
+        logging.error(f'Erro ao buscar expediente: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  PUT /admin/expediente  – salvar expediente do barbeiro
+# ──────────────────────────────────────────
+@app.route('/admin/expediente', methods=['PUT'])
+def admin_salvar_expediente():
+    dados = request.get_json()
+    barbeiro = (dados or {}).get('barbeiro', '').strip()
+    dias     = (dados or {}).get('dias', [])
+    if not barbeiro or not dias:
+        return jsonify({'erro': 'Campos obrigatórios: barbeiro, dias.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor()
+        for d in dias:
+            cursor.execute(
+                "INSERT INTO expediente (barbeiro, dia_semana, hora_inicio, hora_fim, fechado) "
+                "VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE "
+                "hora_inicio=VALUES(hora_inicio), hora_fim=VALUES(hora_fim), fechado=VALUES(fechado)",
+                (barbeiro, d['dia_semana'], d['hora_inicio'], d['hora_fim'], 1 if d.get('fechado') else 0)
+            )
+        conn.commit()
+        logging.info(f'Expediente salvo para {barbeiro}')
+        return jsonify({'mensagem': 'Expediente salvo com sucesso!'}), 200
+    except Exception as e:
+        conn.rollback()
+        logging.error(f'Erro ao salvar expediente: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  GET /expediente  – rota pública (para o site do cliente)
+# ──────────────────────────────────────────
+@app.route('/expediente', methods=['GET'])
+def get_expediente_publico():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    if not barbeiro:
+        return jsonify({'erro': 'Parâmetro obrigatório: barbeiro.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT dia_semana, CAST(hora_inicio AS CHAR) as hora_inicio, "
+            "CAST(hora_fim AS CHAR) as hora_fim, fechado "
+            "FROM expediente WHERE barbeiro = %s",
+            (barbeiro,)
+        )
+        rows = cursor.fetchall()
+        return jsonify(rows), 200
+    except Exception as e:
         return jsonify({'erro': 'Erro interno.'}), 500
     finally:
         conn.close()
