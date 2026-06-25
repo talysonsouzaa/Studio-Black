@@ -413,7 +413,10 @@ async function confirmarAgendamento() {
       salvo = true;
       if (json.id) estado.ultimoId = json.id;
       fb.className = 'resumo-feedback success';
-      fb.textContent = '✓ Agendamento salvo! Redirecionando ao WhatsApp…';
+      fb.textContent = '✓ Agendamento salvo! Abrindo WhatsApp…';
+      // Abrir imediatamente — ainda dentro da ação do usuário
+      abrirWhatsApp();
+      return;
     } else {
       fb.className = 'resumo-feedback error';
       fb.textContent = json.erro || 'Este horário já foi reservado. Escolha outro.';
@@ -424,28 +427,27 @@ async function confirmarAgendamento() {
   } catch (err) {
     // Backend off – abre WA mesmo assim (modo fallback)
     console.warn('Backend indisponível, abrindo WhatsApp diretamente.');
-    salvo = true;
-  }
-
-  if (salvo) {
-    setTimeout(() => abrirWhatsApp(), 1000);
+    abrirWhatsApp();
   }
 }
 
 function abrirWhatsApp() {
-  const numero = estado.barbeiroTel;
-  // Buscar o ID do agendamento salvo para gerar link de cancelamento
+  const numero = String(estado.barbeiroTel).replace(/\D/g, '');
   const linkCancelar = `${window.location.origin}/cancelar.html?id=${estado.ultimoId || ''}`;
   const mensagem = encodeURIComponent(
     `Olá! Quero agendar:\nNome: ${estado.nome}\nWhatsApp: ${estado.telefone}\nBarbeiro: ${estado.barbeiro}\nServiço: ${estado.servico}\nData: ${estado.dataDisplay}\nHorário: ${estado.horario}\n\nPrecisando cancelar? Acesse: ${linkCancelar}`
   );
   const url = `https://wa.me/${numero}?text=${mensagem}`;
-  window.open(url, '_blank');
 
-  // Resetar fluxo
-  setTimeout(() => {
-    resetarAgendamento();
-  }, 1500);
+  // Abrir direto — sem setTimeout para não ser bloqueado pelo navegador
+  const janela = window.open(url, '_blank');
+
+  // Fallback: se bloqueado, redireciona na mesma aba
+  if (!janela || janela.closed || typeof janela.closed === 'undefined') {
+    window.location.href = url;
+  }
+
+  setTimeout(() => resetarAgendamento(), 1500);
 }
 
 function resetarAgendamento() {
