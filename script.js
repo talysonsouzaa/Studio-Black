@@ -5,19 +5,9 @@
 /* ── Config ── */
 const API_BASE = 'https://studioblack.up.railway.app'; // Altere para a URL do seu backend
 
-const SERVICOS = [
-  { nome: 'Corte', preco: 'R$ 40' },
-  { nome: 'Cabelo e Barba (COMBO)', preco: 'R$ 80' },
-  { nome: 'Luzes + Corte', preco: 'R$ 150' },
-  { nome: 'Sobrancelhas', preco: 'R$ 15' },
-  { nome: 'Feminino', preco: 'R$ 65' },
-  { nome: 'Corte + Barba + Sobrancelha (COMBO)', preco: 'R$ 95' },
-  { nome: 'Corte + Sobrancelha (PROMO)', preco: 'R$ 50' },
-  { nome: 'Pai e Filho', preco: 'R$ 80' },
-  { nome: 'Corte + Lavagem + Escova', preco: 'R$ 50' },
-  { nome: 'Acabamento Pezinho', preco: 'R$ 15' },
-  { nome: 'Barboterapia', preco: 'R$ 40' },
-];
+// Serviços carregados dinamicamente do backend (por barbeiro)
+let SERVICOS = [];
+let servicoPreSelecionado = null; // nome do serviço clicado na vitrine
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIAS_SEMANA_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -94,8 +84,8 @@ function selecionarBarbeiro(el) {
   expedienteCache = null; // limpar cache ao trocar de barbeiro
 
   // Aguarda pequeno delay para feedback visual
-  setTimeout(() => {
-    renderizarServicos();
+  setTimeout(async () => {
+    await renderizarServicos();
     irParaStep(2);
   }, 250);
 }
@@ -103,10 +93,22 @@ function selecionarBarbeiro(el) {
 /* ─────────────────────────────────────
    PASSO 2 – Serviço
 ───────────────────────────────────── */
-function renderizarServicos() {
+async function renderizarServicos() {
   const lista = document.getElementById('servicos-lista');
-  lista.innerHTML = '';
+  lista.innerHTML = '<div style="color:#888;font-size:13px;padding:12px;text-align:center;">Carregando serviços…</div>';
 
+  // Carregar serviços do barbeiro selecionado
+  try {
+    const res = await fetch(`${API_BASE}/servicos?barbeiro=${encodeURIComponent(estado.barbeiro)}`);
+    if (res.ok) {
+      const dados = await res.json();
+      SERVICOS = dados.map(s => ({ nome: s.nome, preco: `R$ ${parseFloat(s.preco).toFixed(0).replace('.', ',')}` }));
+    }
+  } catch (e) {
+    console.warn('Não foi possível carregar serviços do backend.');
+  }
+
+  lista.innerHTML = '';
   SERVICOS.forEach(s => {
     const div = document.createElement('div');
     div.className = 'servico-item';
@@ -116,7 +118,13 @@ function renderizarServicos() {
     `;
     div.addEventListener('click', () => selecionarServico(div, s));
     lista.appendChild(div);
+
+    // Pré-selecionar se veio da vitrine
+    if (servicoPreSelecionado && s.nome === servicoPreSelecionado) {
+      setTimeout(() => selecionarServico(div, s), 100);
+    }
   });
+  servicoPreSelecionado = null;
 }
 
 function selecionarServico(el, servico) {
@@ -130,6 +138,14 @@ function selecionarServico(el, servico) {
     renderizarCalendario();
     irParaStep(3);
   }, 250);
+}
+
+/* ─────────────────────────────────────
+   VITRINE – Clique em serviço desce pro agendamento
+───────────────────────────────────── */
+function clicarVitrineServico(nomeServico) {
+  servicoPreSelecionado = nomeServico;
+  document.getElementById('agendar').scrollIntoView({ behavior: 'smooth' });
 }
 
 /* ─────────────────────────────────────
@@ -253,18 +269,35 @@ async function carregarHorarios() {
     }
   }
 
-  /* Buscar horários ocupados e bloqueados no backend */
+  /* Buscar horários ocupados, bloqueados e intervalo de almoço */
   let ocupados = [];
   let bloqueados = [];
+  let almoco = { ativo: 0 };
   try {
-    const [resOcup, resBloc] = await Promise.all([
+    const [resOcup, resBloc, resAlm] = await Promise.all([
       fetch(`${API_BASE}/horarios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`),
-      fetch(`${API_BASE}/bloqueios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`)
+      fetch(`${API_BASE}/bloqueios?barbeiro=${encodeURIComponent(estado.barbeiro)}&data=${estado.data}`),
+      fetch(`${API_BASE}/almoco?barbeiro=${encodeURIComponent(estado.barbeiro)}`)
     ]);
     if (resOcup.ok) { const j = await resOcup.json(); ocupados = j.ocupados || []; }
     if (resBloc.ok) { const j = await resBloc.json(); bloqueados = j.bloqueados || []; }
+    if (resAlm.ok) { almoco = await resAlm.json(); }
   } catch (err) {
     console.warn('Backend indisponível – mostrando todos os horários.');
+  }
+
+  // Calcular slots de almoço bloqueados
+  const slotsAlmoco = [];
+  if (almoco.ativo) {
+    const [hIniAlm, mIniAlm] = (almoco.hora_inicio || '12:00').slice(0, 5).split(':').map(Number);
+    const [hFimAlm, mFimAlm] = (almoco.hora_fim || '13:30').slice(0, 5).split(':').map(Number);
+    const minIni = hIniAlm * 60 + mIniAlm;
+    const minFim = hFimAlm * 60 + mFimAlm;
+    todosSlots.forEach(slot => {
+      const [sh, sm] = slot.split(':').map(Number);
+      const minSlot = sh * 60 + sm;
+      if (minSlot >= minIni && minSlot < minFim) slotsAlmoco.push(slot);
+    });
   }
 
   loading.style.display = 'none';
@@ -287,12 +320,14 @@ async function carregarHorarios() {
     const jaPAssou = isHoje && (sh < agora.getHours() || (sh === agora.getHours() && sm <= agora.getMinutes()));
     const ocupado = ocupados.includes(slot + ':00') || ocupados.includes(slot);
     const bloqueado = bloqueados.includes(slot + ':00') || bloqueados.includes(slot);
+    const ehAlmoco = slotsAlmoco.includes(slot);
 
-    if (jaPAssou || ocupado || bloqueado) {
+    if (jaPAssou || ocupado || bloqueado || ehAlmoco) {
       btn.disabled = true;
       if (ocupado) btn.title = 'Horário já agendado';
       if (jaPAssou) btn.title = 'Horário já passou';
       if (bloqueado) { btn.title = 'Horário indisponível'; btn.classList.add('bloqueado'); }
+      if (ehAlmoco) { btn.title = 'Intervalo de almoço'; btn.classList.add('bloqueado'); }
     } else {
       btn.addEventListener('click', () => selecionarHorario(btn, slot));
     }

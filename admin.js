@@ -624,7 +624,7 @@ function mostrarToast(msg, tipo) {
 ───────────────────────────────────── */
 async function carregarServicosDoBackend() {
     try {
-        const res = await fetch(`${API_BASE}/admin/servicos`);
+        const res = await fetch(`${API_BASE}/admin/servicos?barbeiro=${enc(barbeiroLogado)}`);
         if (res.ok) {
             const lista = await res.json();
             SERVICOS_DB = lista;
@@ -728,7 +728,7 @@ async function salvarServico(id, btn) {
         const res = await fetch(`${API_BASE}/admin/servicos/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, preco })
+            body: JSON.stringify({ nome, preco, barbeiro: barbeiroLogado })
         });
 
         if (res.ok) {
@@ -778,14 +778,16 @@ const DIAS_EXP = [
 ];
 
 async function abrirModalExpediente() {
-    // Buscar expediente atual do backend
+    // Buscar expediente e almoço do backend
     let expediente = {};
+    let almoco = { ativo: 1, hora_inicio: '12:00:00', hora_fim: '13:30:00' };
     try {
-        const res = await fetch(`${API_BASE}/admin/expediente?barbeiro=${enc(barbeiroLogado)}`);
-        if (res.ok) {
-            const lista = await res.json();
-            lista.forEach(d => { expediente[d.dia_semana] = d; });
-        }
+        const [resExp, resAlm] = await Promise.all([
+            fetch(`${API_BASE}/admin/expediente?barbeiro=${enc(barbeiroLogado)}`),
+            fetch(`${API_BASE}/admin/almoco?barbeiro=${enc(barbeiroLogado)}`)
+        ]);
+        if (resExp.ok) { const lista = await resExp.json(); lista.forEach(d => { expediente[d.dia_semana] = d; }); }
+        if (resAlm.ok) { almoco = await resAlm.json(); }
     } catch (e) { }
 
     const overlay = document.createElement('div');
@@ -841,6 +843,18 @@ async function abrirModalExpediente() {
         </div>`;
     }).join('');
 
+    // Gerar options de horário de almoço (10:00 a 16:00)
+    const optsAlm = [];
+    for (let h = 10; h <= 16; h++) {
+        optsAlm.push(`${String(h).padStart(2, '0')}:00`);
+        optsAlm.push(`${String(h).padStart(2, '0')}:30`);
+    }
+    const almIni = almoco.hora_inicio ? almoco.hora_inicio.slice(0, 5) : '12:00';
+    const almFim = almoco.hora_fim ? almoco.hora_fim.slice(0, 5) : '13:30';
+    const almAtivo = almoco.ativo ? true : false;
+
+    const almOpts = (val, selected) => optsAlm.map(o => `<option value="${o}" ${o === selected ? 'selected' : ''}>${o}</option>`).join('');
+
     overlay.innerHTML = `
         <div style="
             background:#1a1a1a;border:1px solid #333;border-radius:12px;
@@ -857,6 +871,31 @@ async function abrirModalExpediente() {
                 Defina seu horário de trabalho por dia da semana. Os clientes só verão os horários dentro do seu expediente.
             </p>
             <div id="exp-lista">${linhas}</div>
+
+            <!-- Intervalo de Almoço -->
+            <div style="margin-top:20px;padding:16px;background:#111;border:1px solid #2a2a2a;border-radius:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <span style="color:#ccc;font-size:14px;font-family:'DM Sans',sans-serif;">🍽️ Intervalo de Almoço</span>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <span style="color:#888;font-size:12px;">${almAtivo ? 'Ativo' : 'Desativado'}</span>
+                        <input type="checkbox" id="alm-ativo" ${almAtivo ? 'checked' : ''}
+                            onchange="this.previousElementSibling.textContent=this.checked?'Ativo':'Desativado';document.getElementById('alm-horarios').style.opacity=this.checked?'1':'.3';document.getElementById('alm-horarios').style.pointerEvents=this.checked?'':'none';"
+                            style="accent-color:#d4a843;width:16px;height:16px;" />
+                    </label>
+                </div>
+                <div id="alm-horarios" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;${almAtivo ? '' : 'opacity:.3;pointer-events:none;'}">
+                    <span style="color:#888;font-size:13px;">De</span>
+                    <select id="alm-inicio" style="background:#1a1a1a;border:1px solid #333;color:#d4a843;border-radius:6px;padding:5px 8px;font-size:13px;font-family:'DM Sans',sans-serif;">
+                        ${almOpts(optsAlm, almIni)}
+                    </select>
+                    <span style="color:#888;font-size:13px;">até</span>
+                    <select id="alm-fim" style="background:#1a1a1a;border:1px solid #333;color:#d4a843;border-radius:6px;padding:5px 8px;font-size:13px;font-family:'DM Sans',sans-serif;">
+                        ${almOpts(optsAlm, almFim)}
+                    </select>
+                    <span style="color:#666;font-size:11px;">(horários bloqueados automaticamente)</span>
+                </div>
+            </div>
+
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button onclick="fecharModalExpediente()" style="
                     flex:1;padding:11px;background:transparent;border:1px solid #333;
@@ -904,15 +943,27 @@ async function salvarExpediente() {
         dias.push({ dia_semana, hora_inicio, hora_fim, fechado });
     });
 
+    // Dados do almoço
+    const almAtivo = document.getElementById('alm-ativo') ? document.getElementById('alm-ativo').checked : true;
+    const almInicio = document.getElementById('alm-inicio') ? document.getElementById('alm-inicio').value + ':00' : '12:00:00';
+    const almFim = document.getElementById('alm-fim') ? document.getElementById('alm-fim').value + ':00' : '13:30:00';
+
     try {
-        const res = await fetch(`${API_BASE}/admin/expediente`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ barbeiro: barbeiroLogado, dias })
-        });
-        if (res.ok) {
+        const [resExp, resAlm] = await Promise.all([
+            fetch(`${API_BASE}/admin/expediente`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ barbeiro: barbeiroLogado, dias })
+            }),
+            fetch(`${API_BASE}/admin/almoco`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ barbeiro: barbeiroLogado, ativo: almAtivo ? 1 : 0, hora_inicio: almInicio, hora_fim: almFim })
+            })
+        ]);
+        if (resExp.ok && resAlm.ok) {
             fecharModalExpediente();
-            mostrarToast('Expediente salvo com sucesso!', 'ok');
+            mostrarToast('Expediente e intervalo salvos!', 'ok');
         } else {
             mostrarToast('Erro ao salvar. Tente novamente.', 'erro');
         }

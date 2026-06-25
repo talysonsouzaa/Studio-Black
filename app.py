@@ -14,7 +14,8 @@ CORS(app)
 
 logging.basicConfig(level=logging.INFO)
 
-# ── Serviços padrão (usados para popular a tabela na 1ª vez) ──
+# ── Serviços padrão por barbeiro ──
+BARBEIROS = ['Borel Barber', 'Junior Barber']
 SERVICOS_PADRAO = [
     ('Corte', 40),
     ('Cabelo e Barba (COMBO)', 80),
@@ -30,31 +31,54 @@ SERVICOS_PADRAO = [
 ]
 
 def garantir_tabela_servicos():
-    """Cria a tabela de serviços e popula com os valores padrão se estiver vazia."""
+    """Cria a tabela servicos_barbeiro (preços independentes por barbeiro) e migra dados antigos."""
     conn = get_connection()
     if conn is None:
         return
     try:
         cursor = conn.cursor()
+        # Nova tabela com coluna barbeiro
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS servicos (
+            CREATE TABLE IF NOT EXISTS servicos_barbeiro (
                 id        INT AUTO_INCREMENT PRIMARY KEY,
-                nome      VARCHAR(200) NOT NULL UNIQUE,
-                preco     DECIMAL(10,2) NOT NULL
+                barbeiro  VARCHAR(100) NOT NULL,
+                nome      VARCHAR(200) NOT NULL,
+                preco     DECIMAL(10,2) NOT NULL,
+                UNIQUE KEY uq_barb_nome (barbeiro, nome)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
         conn.commit()
-        cursor.execute("SELECT COUNT(*) FROM servicos")
+
+        # Manter tabela antiga para compatibilidade (caso exista)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS servicos (
+                id    INT AUTO_INCREMENT PRIMARY KEY,
+                nome  VARCHAR(200) NOT NULL UNIQUE,
+                preco DECIMAL(10,2) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        conn.commit()
+
+        # Popular servicos_barbeiro se vazia
+        cursor.execute("SELECT COUNT(*) FROM servicos_barbeiro")
         total = cursor.fetchone()[0]
         if total == 0:
+            # Tentar migrar da tabela antiga
+            cursor.execute("SELECT nome, preco FROM servicos")
+            antigos = cursor.fetchall()
+            base = antigos if antigos else SERVICOS_PADRAO
+            registros = []
+            for barb in BARBEIROS:
+                for nome, preco in base:
+                    registros.append((barb, nome, float(preco)))
             cursor.executemany(
-                "INSERT IGNORE INTO servicos (nome, preco) VALUES (%s, %s)",
-                SERVICOS_PADRAO
+                "INSERT IGNORE INTO servicos_barbeiro (barbeiro, nome, preco) VALUES (%s, %s, %s)",
+                registros
             )
             conn.commit()
-            logging.info('Tabela servicos populada com dados padrão.')
+            logging.info('Tabela servicos_barbeiro populada com dados padrão.')
     except Exception as e:
-        logging.error(f'Erro ao criar tabela servicos: {e}')
+        logging.error(f'Erro ao criar tabela servicos_barbeiro: {e}')
     finally:
         conn.close()
 
@@ -104,6 +128,40 @@ def garantir_tabela_expediente():
         conn.close()
 
 garantir_tabela_expediente()
+
+
+def garantir_tabela_almoco():
+    """Cria tabela de intervalo de almoço por barbeiro."""
+    conn = get_connection()
+    if conn is None:
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS intervalo_almoco (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                barbeiro    VARCHAR(100) NOT NULL UNIQUE,
+                ativo       TINYINT(1)   NOT NULL DEFAULT 1,
+                hora_inicio TIME         NOT NULL DEFAULT '12:00:00',
+                hora_fim    TIME         NOT NULL DEFAULT '13:30:00'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        conn.commit()
+        cursor.execute("SELECT COUNT(*) FROM intervalo_almoco")
+        if cursor.fetchone()[0] == 0:
+            for barb in BARBEIROS:
+                cursor.execute(
+                    "INSERT IGNORE INTO intervalo_almoco (barbeiro, ativo, hora_inicio, hora_fim) VALUES (%s,1,'12:00:00','13:30:00')",
+                    (barb,)
+                )
+            conn.commit()
+            logging.info('Tabela intervalo_almoco populada com padrão.')
+    except Exception as e:
+        logging.error(f'Erro ao criar tabela intervalo_almoco: {e}')
+    finally:
+        conn.close()
+
+garantir_tabela_almoco()
 
 
 # ──────────────────────────────────────────
@@ -571,16 +629,21 @@ def admin_listar_bloqueios():
 
 
 # ──────────────────────────────────────────
-#  GET /admin/servicos  – listar todos os serviços
+#  GET /admin/servicos  – listar serviços do barbeiro
 # ──────────────────────────────────────────
 @app.route('/admin/servicos', methods=['GET'])
 def admin_listar_servicos():
+    barbeiro = request.args.get('barbeiro', '').strip()
     conn = get_connection()
     if conn is None:
         return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, nome, preco FROM servicos ORDER BY id ASC")
+        if barbeiro:
+            cursor.execute("SELECT id, nome, preco FROM servicos_barbeiro WHERE barbeiro=%s ORDER BY id ASC", (barbeiro,))
+        else:
+            # fallback: retorna Borel
+            cursor.execute("SELECT id, nome, preco FROM servicos_barbeiro WHERE barbeiro='Borel Barber' ORDER BY id ASC")
         rows = cursor.fetchall()
         for r in rows:
             r['preco'] = float(r['preco'])
@@ -593,7 +656,7 @@ def admin_listar_servicos():
 
 
 # ──────────────────────────────────────────
-#  PUT /admin/servicos/<id>  – editar nome e preço
+#  PUT /admin/servicos/<id>  – editar preço (por barbeiro)
 # ──────────────────────────────────────────
 @app.route('/admin/servicos/<int:servico_id>', methods=['PUT'])
 def admin_editar_servico(servico_id):
@@ -601,11 +664,12 @@ def admin_editar_servico(servico_id):
     if not dados:
         return jsonify({'erro': 'Corpo da requisição inválido.'}), 400
 
-    nome  = dados.get('nome', '').strip()
-    preco = dados.get('preco')
+    nome     = dados.get('nome', '').strip()
+    preco    = dados.get('preco')
+    barbeiro = dados.get('barbeiro', '').strip()
 
-    if not nome or preco is None:
-        return jsonify({'erro': 'Campos obrigatórios: nome, preco.'}), 400
+    if not nome or preco is None or not barbeiro:
+        return jsonify({'erro': 'Campos obrigatórios: nome, preco, barbeiro.'}), 400
 
     try:
         preco = float(preco)
@@ -620,16 +684,16 @@ def admin_editar_servico(servico_id):
 
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM servicos WHERE id = %s", (servico_id,))
+        cursor.execute("SELECT id FROM servicos_barbeiro WHERE id = %s AND barbeiro = %s", (servico_id, barbeiro))
         if not cursor.fetchone():
             return jsonify({'erro': 'Serviço não encontrado.'}), 404
 
         cursor.execute(
-            "UPDATE servicos SET nome = %s, preco = %s WHERE id = %s",
-            (nome, preco, servico_id)
+            "UPDATE servicos_barbeiro SET nome = %s, preco = %s WHERE id = %s AND barbeiro = %s",
+            (nome, preco, servico_id, barbeiro)
         )
         conn.commit()
-        logging.info(f'Serviço {servico_id} atualizado: {nome} | R$ {preco}')
+        logging.info(f'Serviço {servico_id} ({barbeiro}) atualizado: {nome} | R$ {preco}')
         return jsonify({'mensagem': 'Serviço atualizado com sucesso!', 'id': servico_id, 'nome': nome, 'preco': preco}), 200
     except Exception as e:
         conn.rollback()
@@ -640,16 +704,20 @@ def admin_editar_servico(servico_id):
 
 
 # ──────────────────────────────────────────
-#  GET /servicos  – rota pública para o frontend
+#  GET /servicos  – rota pública (filtra por barbeiro)
 # ──────────────────────────────────────────
 @app.route('/servicos', methods=['GET'])
 def listar_servicos_publico():
+    barbeiro = request.args.get('barbeiro', '').strip()
     conn = get_connection()
     if conn is None:
         return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT nome, preco FROM servicos ORDER BY id ASC")
+        if barbeiro:
+            cursor.execute("SELECT nome, preco FROM servicos_barbeiro WHERE barbeiro=%s ORDER BY id ASC", (barbeiro,))
+        else:
+            cursor.execute("SELECT nome, preco FROM servicos ORDER BY id ASC")
         rows = cursor.fetchall()
         for r in rows:
             r['preco'] = float(r['preco'])
@@ -745,6 +813,96 @@ def get_expediente_publico():
         )
         rows = cursor.fetchall()
         return jsonify(rows), 200
+    except Exception as e:
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  GET /admin/almoco  – buscar intervalo de almoço do barbeiro
+# ──────────────────────────────────────────
+@app.route('/admin/almoco', methods=['GET'])
+def admin_get_almoco():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    if not barbeiro:
+        return jsonify({'erro': 'Parâmetro obrigatório: barbeiro.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT ativo, CAST(hora_inicio AS CHAR) as hora_inicio, CAST(hora_fim AS CHAR) as hora_fim "
+            "FROM intervalo_almoco WHERE barbeiro = %s",
+            (barbeiro,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            row = {'ativo': 1, 'hora_inicio': '12:00:00', 'hora_fim': '13:30:00'}
+        return jsonify(row), 200
+    except Exception as e:
+        logging.error(f'Erro ao buscar almoco: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  PUT /admin/almoco  – salvar intervalo de almoço
+# ──────────────────────────────────────────
+@app.route('/admin/almoco', methods=['PUT'])
+def admin_salvar_almoco():
+    dados = request.get_json()
+    barbeiro    = (dados or {}).get('barbeiro', '').strip()
+    ativo       = (dados or {}).get('ativo', 1)
+    hora_inicio = (dados or {}).get('hora_inicio', '12:00:00')
+    hora_fim    = (dados or {}).get('hora_fim', '13:30:00')
+    if not barbeiro:
+        return jsonify({'erro': 'Campo obrigatório: barbeiro.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO intervalo_almoco (barbeiro, ativo, hora_inicio, hora_fim) VALUES (%s,%s,%s,%s) "
+            "ON DUPLICATE KEY UPDATE ativo=VALUES(ativo), hora_inicio=VALUES(hora_inicio), hora_fim=VALUES(hora_fim)",
+            (barbeiro, 1 if ativo else 0, hora_inicio, hora_fim)
+        )
+        conn.commit()
+        logging.info(f'Almoço salvo para {barbeiro}: ativo={ativo} {hora_inicio}-{hora_fim}')
+        return jsonify({'mensagem': 'Intervalo de almoço salvo!'}), 200
+    except Exception as e:
+        conn.rollback()
+        logging.error(f'Erro ao salvar almoco: {e}')
+        return jsonify({'erro': 'Erro interno.'}), 500
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+#  GET /almoco  – rota pública (para bloquear horários no site)
+# ──────────────────────────────────────────
+@app.route('/almoco', methods=['GET'])
+def get_almoco_publico():
+    barbeiro = request.args.get('barbeiro', '').strip()
+    if not barbeiro:
+        return jsonify({'erro': 'Parâmetro obrigatório: barbeiro.'}), 400
+    conn = get_connection()
+    if conn is None:
+        return jsonify({'erro': 'Falha ao conectar ao banco.'}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT ativo, CAST(hora_inicio AS CHAR) as hora_inicio, CAST(hora_fim AS CHAR) as hora_fim "
+            "FROM intervalo_almoco WHERE barbeiro = %s",
+            (barbeiro,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            row = {'ativo': 1, 'hora_inicio': '12:00:00', 'hora_fim': '13:30:00'}
+        return jsonify(row), 200
     except Exception as e:
         return jsonify({'erro': 'Erro interno.'}), 500
     finally:
