@@ -1054,17 +1054,33 @@ async function carregarHorariosBloqueio(data) {
 
     container.innerHTML = '<div style="color:#666;font-size:13px;grid-column:1/-1;">Carregando...</div>';
 
-    // Buscar agendamentos e bloqueios existentes
+    // Buscar agendamentos, bloqueios e intervalo de almoço
     let agendados = [];
     let bloqueados = [];
+    let slotsAlmoco = [];
 
     try {
-        const [resAg, resBloc] = await Promise.all([
+        const [resAg, resBloc, resAlm] = await Promise.all([
             fetch(`${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${data}`),
-            fetch(`${API_BASE}/admin/bloqueios?barbeiro=${enc(barbeiroLogado)}&data=${data}`)
+            fetch(`${API_BASE}/admin/bloqueios?barbeiro=${enc(barbeiroLogado)}&data=${data}`),
+            fetch(`${API_BASE}/almoco?barbeiro=${enc(barbeiroLogado)}`)
         ]);
         if (resAg.ok) { const j = await resAg.json(); agendados = j.map(a => a.horario.slice(0, 5)); }
         if (resBloc.ok) { const j = await resBloc.json(); bloqueados = j.bloqueados.map(h => h.slice(0, 5)); }
+        if (resAlm.ok) {
+            const alm = await resAlm.json();
+            if (alm.ativo) {
+                const [hIni, mIni] = (alm.hora_inicio || '12:00').slice(0, 5).split(':').map(Number);
+                const [hFim, mFim] = (alm.hora_fim || '13:30').slice(0, 5).split(':').map(Number);
+                const minIni = hIni * 60 + mIni;
+                const minFim = hFim * 60 + mFim;
+                SLOTS_BLOQUEIO.forEach(slot => {
+                    const [sh, sm] = slot.split(':').map(Number);
+                    const minSlot = sh * 60 + sm;
+                    if (minSlot >= minIni && minSlot < minFim) slotsAlmoco.push(slot);
+                });
+            }
+        }
     } catch (e) { }
 
     container.innerHTML = '';
@@ -1072,30 +1088,34 @@ async function carregarHorariosBloqueio(data) {
     SLOTS_BLOQUEIO.forEach(slot => {
         const temAgendamento = agendados.includes(slot);
         const estaBloqueado = bloqueados.includes(slot);
+        const ehAlmoco = slotsAlmoco.includes(slot);
 
         const btn = document.createElement('button');
         btn.dataset.slot = slot;
         btn.dataset.bloqueado = estaBloqueado ? '1' : '0';
+        btn.dataset.almoco = ehAlmoco ? '1' : '0';
 
         btn.style.cssText = `
             padding:10px 6px;border-radius:8px;font-size:13px;cursor:pointer;
             font-family:'DM Sans',sans-serif;font-weight:500;transition:all .15s;
             ${temAgendamento
                 ? 'background:#1a2a1a;border:1px solid #2a4a2a;color:#4caf50;cursor:not-allowed;'
-                : estaBloqueado
-                    ? 'background:#3a1010;border:1px solid #e74c3c;color:#e74c3c;'
-                    : 'background:#1e1e1e;border:1px solid #333;color:#ccc;'
+                : ehAlmoco
+                    ? 'background:#2a1f00;border:1px solid #d4a843;color:#d4a843;cursor:not-allowed;'
+                    : estaBloqueado
+                        ? 'background:#3a1010;border:1px solid #e74c3c;color:#e74c3c;'
+                        : 'background:#1e1e1e;border:1px solid #333;color:#ccc;'
             }
         `;
 
         btn.innerHTML = `
             <div>${slot}</div>
             <div style="font-size:10px;margin-top:2px;opacity:.7;">
-                ${temAgendamento ? '✓ Agendado' : estaBloqueado ? '🔒 Bloqueado' : 'Livre'}
+                ${temAgendamento ? '✓ Agendado' : ehAlmoco ? '🍽️ Almoço' : estaBloqueado ? '🔒 Bloqueado' : 'Livre'}
             </div>
         `;
 
-        if (!temAgendamento) {
+        if (!temAgendamento && !ehAlmoco) {
             btn.onclick = () => toggleBloqueio(btn);
         }
 
