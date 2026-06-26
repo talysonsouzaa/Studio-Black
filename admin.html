@@ -298,6 +298,19 @@
                 </div>
                 <div style="background:#111;border:1px solid #222;border-radius:10px;padding:18px;margin-bottom:16px;">
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+                        <span style="color:#ccc;font-size:13px;font-family:'DM Sans',sans-serif;">📆 Consultar
+                            mês:</span>
+                        <input type="month" id="fat-filtro-mes"
+                            style="background:#1e1e1e;border:1px solid #333;color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;font-family:'DM Sans',sans-serif;"
+                            onchange="consultarFatMes(this.value)" />
+                        <button onclick="consultarFatMes(document.getElementById('fat-filtro-mes').value)"
+                            style="background:#d4a84322;border:1px solid #d4a84355;color:#d4a843;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">Ver</button>
+                    </div>
+                    <div id="fat-mes-detalhe" style="color:#666;font-size:13px;font-family:'DM Sans',sans-serif;">
+                        Selecione um mês para consultar o faturamento.</div>
+                </div>
+                <div style="background:#111;border:1px solid #222;border-radius:10px;padding:18px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
                         <span style="color:#ccc;font-size:13px;font-family:'DM Sans',sans-serif;">📊 Consultar dia
                             específico:</span>
                         <input type="date" id="fat-filtro-data"
