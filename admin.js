@@ -338,11 +338,6 @@ function limparFiltro() {
    FATURAMENTO
 ───────────────────────────────────── */
 async function carregarFaturamento() {
-    // Inicializar input de mês com mês atual
-    const agora = new Date();
-    const mesAtual = `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}`;
-    const inputMes = document.getElementById('fat-filtro-mes');
-    if (inputMes) inputMes.value = mesAtual;
     // Buscar todo o histórico do barbeiro
     let todos = [];
     try {
@@ -353,6 +348,10 @@ async function carregarFaturamento() {
     const hoje = isoHoje();
     const agora = new Date();
     const mesAtual = `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}`;
+
+    // Inicializar input de mês com mês atual
+    const inputMes = document.getElementById('fat-filtro-mes');
+    if (inputMes && !inputMes.value) inputMes.value = mesAtual;
 
     // Faturamento de hoje
     const agsHoje = todos.filter(a => a.data === hoje);
@@ -452,84 +451,6 @@ async function consultarFatDia(data) {
             <span style="color:#d4a843;font-size:15px;font-weight:700;">Total: R$ ${fat}</span>
         </div>
     `;
-}
-
-async function consultarFatMes(mesAno) {
-    if (!mesAno) return;
-    const container = document.getElementById('fat-mes-detalhe');
-    container.innerHTML = '<span style="color:#666;">Carregando…</span>';
-
-    // Buscar todo o histórico e filtrar pelo mês
-    let todos = [];
-    try {
-        const res = await fetch(`${API_BASE}/admin/historico?barbeiro=${enc(barbeiroLogado)}`);
-        if (res.ok) todos = await res.json();
-    } catch (e) {
-        container.innerHTML = '<span style="color:#e74c3c;">Erro ao carregar dados.</span>';
-        return;
-    }
-
-    const agsMes = todos.filter(a => a.data.startsWith(mesAno));
-    const fat = agsMes.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
-    const ticket = agsMes.length ? Math.round(fat / agsMes.length) : 0;
-
-    const [ano, mes] = mesAno.split('-');
-    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const nomeMes = `${meses[parseInt(mes) - 1]} ${ano}`;
-
-    if (agsMes.length === 0) {
-        container.innerHTML = `<span style="color:#555;">Nenhum agendamento em ${nomeMes}.</span>`;
-        return;
-    }
-
-    // Agrupar por dia
-    const porDia = {};
-    agsMes.forEach(a => {
-        if (!porDia[a.data]) porDia[a.data] = { ags: [], fat: 0 };
-        porDia[a.data].ags.push(a);
-        porDia[a.data].fat += PRECOS[a.servico] || 0;
-    });
-
-    const diasOrdenados = Object.keys(porDia).sort();
-    const linhasDias = diasOrdenados.map(data => {
-        const [a, m, d] = data.split('-');
-        const fatDia = porDia[data].fat;
-        const qtd = porDia[data].ags.length;
-        return `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1e1e1e;">
-                <span style="color:#ccc;font-size:13px;">${d}/${m}/${a}</span>
-                <span style="color:#888;font-size:12px;">${qtd} cliente${qtd > 1 ? 's' : ''}</span>
-                <span style="color:#d4a843;font-size:13px;font-weight:500;">R$ ${fatDia}</span>
-            </div>`;
-    }).join('');
-
-    container.innerHTML = `
-        <div style="color:#d4a843;font-size:13px;font-weight:600;margin-bottom:10px;">${nomeMes}</div>
-        <div style="margin-bottom:12px;">${linhasDias}</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-top:10px;border-top:1px solid #2a2a2a;">
-            <div style="text-align:center;">
-                <div style="color:#666;font-size:11px;margin-bottom:4px;">Clientes</div>
-                <div style="color:#fff;font-size:16px;font-weight:600;">${agsMes.length}</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="color:#666;font-size:11px;margin-bottom:4px;">Faturamento</div>
-                <div style="color:#d4a843;font-size:16px;font-weight:600;">R$ ${fat}</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="color:#666;font-size:11px;margin-bottom:4px;">Ticket Médio</div>
-                <div style="color:#fff;font-size:16px;font-weight:600;">R$ ${ticket}</div>
-            </div>
-        </div>
-    `;
-
-    // Atualizar também os cards do topo se for o mês atual
-    const agora = new Date();
-    const mesAtual = `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}`;
-    if (mesAno === mesAtual) {
-        document.getElementById('fat-mes-valor').textContent = `R$ ${fat}`;
-        document.getElementById('fat-cli-mes').textContent = agsMes.length;
-        document.getElementById('fat-ticket').textContent = `R$ ${ticket}`;
-    }
 }
 
 /* ─────────────────────────────────────
