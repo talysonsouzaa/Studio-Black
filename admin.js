@@ -139,6 +139,7 @@ function abrirPainel() {
     carregarServicosDoBackend().then(() => {
         carregarAgendaHoje();
         carregarHistorico();
+        carregarFaturamento();
     });
 }
 
@@ -331,6 +332,121 @@ function filtrarHistorico() {
 function limparFiltro() {
     document.getElementById('filtro-data').value = '';
     carregarHistorico();
+}
+
+/* ─────────────────────────────────────
+   FATURAMENTO
+───────────────────────────────────── */
+async function carregarFaturamento() {
+    // Buscar todo o histórico do barbeiro
+    let todos = [];
+    try {
+        const res = await fetch(`${API_BASE}/admin/historico?barbeiro=${enc(barbeiroLogado)}`);
+        if (res.ok) todos = await res.json();
+    } catch (e) { return; }
+
+    const hoje = isoHoje();
+    const agora = new Date();
+    const mesAtual = `${agora.getFullYear()}-${pad(agora.getMonth() + 1)}`;
+
+    // Faturamento de hoje
+    const agsHoje = todos.filter(a => a.data === hoje);
+    const fatHoje = agsHoje.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
+
+    // Faturamento do mês
+    const agsMes = todos.filter(a => a.data.startsWith(mesAtual));
+    const fatMes = agsMes.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
+    const ticketMedio = agsMes.length ? Math.round(fatMes / agsMes.length) : 0;
+
+    // Atualizar cards
+    const [ano, mes, dia] = hoje.split('-');
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    document.getElementById('fat-dia-valor').textContent = `R$ ${fatHoje}`;
+    document.getElementById('fat-dia-label').textContent = `${dia}/${mes}/${ano}`;
+    document.getElementById('fat-mes-valor').textContent = `R$ ${fatMes}`;
+    document.getElementById('fat-mes-label').textContent = `${meses[agora.getMonth()]} ${agora.getFullYear()}`;
+    document.getElementById('fat-cli-mes').textContent = agsMes.length;
+    document.getElementById('fat-ticket').textContent = `R$ ${ticketMedio}`;
+
+    // Últimos 7 dias
+    renderizarUltimosDias(todos, agora);
+}
+
+function renderizarUltimosDias(todos, agora) {
+    const container = document.getElementById('fat-ultimos-dias');
+    if (!container) return;
+
+    const linhas = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(agora);
+        d.setDate(agora.getDate() - i);
+        const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const dd = pad(d.getDate());
+        const mm = pad(d.getMonth() + 1);
+        const diasNome = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        const nomeDia = diasNome[d.getDay()];
+        const isHoje = iso === isoHoje();
+
+        const agsDia = todos.filter(a => a.data === iso);
+        const fat = agsDia.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
+
+        // barra de progresso relativa (max visual = R$500)
+        const pct = Math.min(Math.round((fat / 500) * 100), 100);
+
+        linhas.push(`
+            <div style="display:grid;grid-template-columns:60px 1fr 80px;align-items:center;gap:10px;">
+                <span style="color:${isHoje ? '#d4a843' : '#888'};font-size:12px;font-family:'DM Sans',sans-serif;">
+                    ${nomeDia} ${dd}/${mm}
+                </span>
+                <div style="background:#1e1e1e;border-radius:4px;height:8px;overflow:hidden;">
+                    <div style="background:${isHoje ? '#d4a843' : '#444'};width:${pct}%;height:100%;border-radius:4px;transition:width .4s;"></div>
+                </div>
+                <span style="color:${isHoje ? '#d4a843' : '#ccc'};font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;text-align:right;">
+                    R$ ${fat}
+                </span>
+            </div>
+        `);
+    }
+
+    container.innerHTML = linhas.join('');
+}
+
+async function consultarFatDia(data) {
+    if (!data) return;
+    const container = document.getElementById('fat-dia-detalhe');
+    container.innerHTML = '<span style="color:#666;">Carregando…</span>';
+
+    let ags = [];
+    try {
+        const res = await fetch(`${API_BASE}/admin/agendamentos?barbeiro=${enc(barbeiroLogado)}&data=${data}`);
+        if (res.ok) ags = await res.json();
+    } catch (e) { }
+
+    const [ano, mes, dia] = data.split('-');
+    const dataFmt = `${dia}/${mes}/${ano}`;
+    const fat = ags.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
+
+    if (ags.length === 0) {
+        container.innerHTML = `<span style="color:#555;">Nenhum agendamento em ${dataFmt}.</span>`;
+        return;
+    }
+
+    const linhasServicos = ags.map(a => {
+        const preco = PRECOS[a.servico] || 0;
+        const nome = a.nome || '—';
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1e1e1e;">
+            <span style="color:#ccc;font-size:13px;">${a.horario.slice(0, 5)} · ${a.servico} · ${nome}</span>
+            <span style="color:#d4a843;font-size:13px;font-weight:500;">R$ ${preco}</span>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="margin-bottom:10px;">${linhasServicos}</div>
+        <div style="display:flex;justify-content:space-between;padding-top:8px;">
+            <span style="color:#888;font-size:13px;">${ags.length} cliente${ags.length > 1 ? 's' : ''} em ${dataFmt}</span>
+            <span style="color:#d4a843;font-size:15px;font-weight:700;">Total: R$ ${fat}</span>
+        </div>
+    `;
 }
 
 /* ─────────────────────────────────────

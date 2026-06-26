@@ -256,6 +256,68 @@
                 <div id="lista-hoje" class="agenda-lista"></div>
             </section>
 
+            <!-- Faturamento -->
+            <section class="painel-section">
+                <div class="section-header">
+                    <div class="section-header-left">
+                        <h2>💰 Faturamento</h2>
+                    </div>
+                </div>
+                <div id="fat-cards"
+                    style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+                    <div class="kpi-card gold-border">
+                        <div class="kpi-icon">📅</div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Faturamento do Dia</span>
+                            <span class="kpi-valor gold" id="fat-dia-valor">R$ —</span>
+                            <span style="color:#666;font-size:11px;" id="fat-dia-label">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">📆</div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Faturamento do Mês</span>
+                            <span class="kpi-valor gold" id="fat-mes-valor">R$ —</span>
+                            <span style="color:#666;font-size:11px;" id="fat-mes-label">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">👥</div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Clientes no Mês</span>
+                            <span class="kpi-valor" id="fat-cli-mes">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">🎯</div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Ticket Médio</span>
+                            <span class="kpi-valor" id="fat-ticket">R$ —</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="background:#111;border:1px solid #222;border-radius:10px;padding:18px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+                        <span style="color:#ccc;font-size:13px;font-family:'DM Sans',sans-serif;">📊 Consultar dia
+                            específico:</span>
+                        <input type="date" id="fat-filtro-data"
+                            style="background:#1e1e1e;border:1px solid #333;color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;font-family:'DM Sans',sans-serif;"
+                            onchange="consultarFatDia(this.value)" />
+                        <button onclick="consultarFatDia(document.getElementById('fat-filtro-data').value)"
+                            style="background:#d4a84322;border:1px solid #d4a84355;color:#d4a843;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">Ver</button>
+                    </div>
+                    <div id="fat-dia-detalhe" style="color:#666;font-size:13px;font-family:'DM Sans',sans-serif;">
+                        Selecione uma data para ver o faturamento detalhado.</div>
+                </div>
+                <div style="background:#111;border:1px solid #222;border-radius:10px;padding:18px;">
+                    <div style="color:#ccc;font-size:13px;font-family:'DM Sans',sans-serif;margin-bottom:12px;">📈
+                        Últimos 7 dias</div>
+                    <div id="fat-ultimos-dias" style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="color:#555;font-size:13px;">Carregando…</div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Histórico -->
             <section class="painel-section">
                 <div class="section-header">
