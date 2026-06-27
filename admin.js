@@ -202,20 +202,21 @@ async function carregarAgendaHoje() {
 
     loading.style.display = 'none';
     agendaHojeCache = ags;
+    // Filtrar slots de continuação (60min) da exibição
+    const agsFiltrados = ags.filter(a => !a.servico.startsWith('[continuação]'));
 
     const ehHoje = dataConsulta === isoHoje();
     const agora = new Date();
     const horaAgora = `${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
     const horaAgoraFull = `${pad(agora.getHours())}:${pad(agora.getMinutes())}:00`;
-    const proximos = ehHoje ? ags.filter(a => a.horario > horaAgoraFull) : [];
+    const proximos = ehHoje ? agsFiltrados.filter(a => a.horario > horaAgoraFull) : [];
     const proximo = proximos.length ? proximos[0] : null;
-    const faturamento = ags.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
-    const livres = TOTAL_SLOTS_DIA - ags.length;
+    const faturamento = agsFiltrados.reduce((s, a) => s + (PRECOS[a.servico] || 0), 0);
+    const livres = TOTAL_SLOTS_DIA - ags.length; // usa ags completo para contar slots reais
 
-    // KPIs só atualizam quando for hoje
     if (ehHoje) {
         document.getElementById('kpi-fat').textContent = `R$ ${faturamento}`;
-        document.getElementById('kpi-cli').textContent = ags.length;
+        document.getElementById('kpi-cli').textContent = agsFiltrados.length;
         document.getElementById('kpi-livre').textContent = livres > 0 ? livres : '0';
         const nomeProx = proximo ? (proximo.nome || 'Cliente') : null;
         document.getElementById('kpi-prox').textContent = proximo
@@ -224,12 +225,12 @@ async function carregarAgendaHoje() {
         if (!proximo) buscarProximoGeral();
     }
 
-    if (ags.length === 0) {
+    if (agsFiltrados.length === 0) {
         lista.innerHTML = '<div class="vazio">Nenhum agendamento para este dia.</div>';
         return;
     }
 
-    ags.forEach(a => {
+    agsFiltrados.forEach(a => {
         const isProximo = proximo && a.id === proximo.id;
         const jaPassou = ehHoje && a.horario.slice(0, 5) < horaAgora;
         const preco = PRECOS[a.servico] ?? '?';

@@ -307,6 +307,16 @@ async function carregarHorarios() {
     return;
   }
 
+  /* Serviços que ocupam 60min (2 slots) */
+  const SERVICOS_60MIN = new Set(['Cabelo e Barba (COMBO)', 'Pai e Filho']);
+  const eh60min = SERVICOS_60MIN.has(estado.servico);
+
+  function proxSlot(slot) {
+    const [h, m] = slot.split(':').map(Number);
+    const total = h * 60 + m + 30;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
+
   /* Horários passados no dia de hoje */
   const agora = new Date();
   const isHoje = estado.data === formatarDataISO(agora);
@@ -317,18 +327,27 @@ async function carregarHorarios() {
     btn.className = 'horario-btn';
     btn.textContent = slot;
 
+    const proxS = proxSlot(slot);
+    const proxOcupado = eh60min && (
+      ocupados.includes(proxS + ':00') || ocupados.includes(proxS) ||
+      bloqueados.includes(proxS + ':00') || bloqueados.includes(proxS) ||
+      slotsAlmoco.includes(proxS) || !todosSlots.includes(proxS)
+    );
+
     const jaPAssou = isHoje && (sh < agora.getHours() || (sh === agora.getHours() && sm <= agora.getMinutes()));
     const ocupado = ocupados.includes(slot + ':00') || ocupados.includes(slot);
     const bloqueado = bloqueados.includes(slot + ':00') || bloqueados.includes(slot);
     const ehAlmoco = slotsAlmoco.includes(slot);
 
-    if (jaPAssou || ocupado || bloqueado || ehAlmoco) {
+    if (jaPAssou || ocupado || bloqueado || ehAlmoco || proxOcupado) {
       btn.disabled = true;
       if (ocupado) btn.title = 'Horário já agendado';
       if (jaPAssou) btn.title = 'Horário já passou';
       if (bloqueado) { btn.title = 'Horário indisponível'; btn.classList.add('bloqueado'); }
       if (ehAlmoco) { btn.title = 'Intervalo de almoço'; btn.classList.add('bloqueado'); }
+      if (proxOcupado && !bloqueado && !ocupado) { btn.title = 'Próximo horário ocupado (serviço 60min)'; btn.classList.add('bloqueado'); }
     } else {
+      if (eh60min) btn.title = '⏱ Serviço de 60 minutos';
       btn.addEventListener('click', () => selecionarHorario(btn, slot));
     }
 

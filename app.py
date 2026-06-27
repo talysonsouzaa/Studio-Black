@@ -228,6 +228,17 @@ def get_horarios():
 #  Salva um agendamento se não houver conflito.
 #  Body JSON: barbeiro, servico, data, horario
 # ──────────────────────────────────────────
+# Serviços que duram 60 minutos (ocupam 2 slots de 30min)
+SERVICOS_60MIN = {'Cabelo e Barba (COMBO)', 'Pai e Filho'}
+
+def proximo_slot(horario_str):
+    """Retorna o slot seguinte (+30min). Ex: '10:00:00' -> '10:30:00'"""
+    from datetime import datetime, timedelta
+    fmt = '%H:%M:%S' if len(horario_str) == 8 else '%H:%M'
+    t = datetime.strptime(horario_str, fmt)
+    prox = t + timedelta(minutes=30)
+    return prox.strftime('%H:%M:%S')
+
 @app.route('/agendar', methods=['POST'])
 def agendar():
     dados = request.get_json()
@@ -244,29 +255,52 @@ def agendar():
     if not all([barbeiro, servico, data, horario]):
         return jsonify({'erro': 'Todos os campos são obrigatórios: barbeiro, servico, data, horario.'}), 400
 
+    eh_60min = servico in SERVICOS_60MIN
+    horario_fmt = horario if ':' in horario else horario + ':00'
+    if len(horario_fmt) == 5:
+        horario_fmt += ':00'
+    horario_extra = proximo_slot(horario_fmt) if eh_60min else None
+
     conn = get_connection()
     if conn is None:
         return jsonify({'erro': 'Falha ao conectar ao banco de dados.'}), 500
 
     try:
         cursor = conn.cursor()
+
+        # Verificar slot principal
         cursor.execute(
             'SELECT id FROM agendamentos WHERE barbeiro = %s AND data = %s AND horario = %s',
-            (barbeiro, data, horario)
+            (barbeiro, data, horario_fmt)
         )
-        existente = cursor.fetchone()
+        if cursor.fetchone():
+            return jsonify({'erro': 'Este horário já está reservado. Escolha outro horário.'}), 409
 
-        if existente:
-            return jsonify({'erro': 'Este horário já está reservado para este barbeiro. Escolha outro horário.'}), 409
+        # Verificar slot extra (60min)
+        if horario_extra:
+            cursor.execute(
+                'SELECT id FROM agendamentos WHERE barbeiro = %s AND data = %s AND horario = %s',
+                (barbeiro, data, horario_extra)
+            )
+            if cursor.fetchone():
+                return jsonify({'erro': 'Este serviço dura 60 minutos e o próximo horário já está ocupado. Escolha outro horário.'}), 409
 
+        # Inserir agendamento principal
         cursor.execute(
             'INSERT INTO agendamentos (barbeiro, servico, data, horario, nome, telefone) VALUES (%s, %s, %s, %s, %s, %s)',
-            (barbeiro, servico, data, horario, nome, telefone)
+            (barbeiro, servico, data, horario_fmt, nome, telefone)
         )
-        conn.commit()
-
         agendamento_id = cursor.lastrowid
-        logging.info(f'Agendamento salvo: {barbeiro} | {servico} | {data} | {horario} | {nome}')
+
+        # Inserir slot extra como bloqueio vinculado
+        if horario_extra:
+            cursor.execute(
+                'INSERT INTO agendamentos (barbeiro, servico, data, horario, nome, telefone) VALUES (%s, %s, %s, %s, %s, %s)',
+                (barbeiro, f'[continuação] {servico}', data, horario_extra, nome, telefone)
+            )
+
+        conn.commit()
+        logging.info(f'Agendamento salvo: {barbeiro} | {servico} | {data} | {horario_fmt} | {nome}{"| +60min" if eh_60min else ""}')
         return jsonify({'mensagem': 'Agendamento realizado com sucesso!', 'id': agendamento_id}), 201
 
     except Exception as e:
