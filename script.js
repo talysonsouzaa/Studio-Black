@@ -260,12 +260,14 @@ async function carregarHorarios() {
   /* Gerar slots dentro do expediente do barbeiro */
   const todosSlots = [];
   if (!diaFechado) {
-    const [hIni] = horaInicio.split(':').map(Number);
-    const [hFim] = horaFim.split(':').map(Number);
-    for (let h = hIni; h <= hFim; h++) {
-      const hh = String(h).padStart(2, '0');
-      if (`${hh}:00` <= horaFim) todosSlots.push(`${hh}:00`);
-      if (h < hFim) todosSlots.push(`${hh}:30`);
+    const [hIni, mIni] = horaInicio.split(':').map(Number);
+    const [hFim, mFim] = horaFim.split(':').map(Number);
+    const inicioMin = hIni * 60 + (mIni || 0);
+    const fimMin = hFim * 60 + (mFim || 0);
+    for (let m = inicioMin; m < fimMin; m += 30) {
+      const hh = String(Math.floor(m / 60)).padStart(2, '0');
+      const mm = String(m % 60).padStart(2, '0');
+      todosSlots.push(`${hh}:${mm}`);
     }
   }
 
