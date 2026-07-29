@@ -6,12 +6,6 @@ STUDIO BLACK – admin.js
 
 const API_BASE = 'https://studioblack.up.railway.app';
 
-/* ── Senhas ── */
-const SENHAS = {
-    'Borel Barber': 'borel2026',
-    'Junior Barber': 'junior2026',
-};
-
 /* ── Preços dinâmicos (atualizados do backend) ── */
 let PRECOS = {
     'Corte': 40,
@@ -41,6 +35,9 @@ const SLOTS_DIA = TODOS_SLOTS;
 let agendaHojeCache = []; // cache dos agendamentos do dia
 let dataAgendaAtual = null; // data sendo visualizada na agenda (definida no abrirPainel)
 
+/* ── Barbeiros válidos (sem senha: clicar no perfil já loga) ── */
+const BARBEIROS = ['Borel Barber', 'Junior Barber'];
+
 /* ── Estado ── */
 let barbeiroAtual = 'Borel Barber';
 let barbeiroLogado = null;
@@ -48,40 +45,13 @@ let barbeiroLogado = null;
 /* ─────────────────────────────────────
    LOGIN
 ───────────────────────────────────── */
-function selecionarBarbeiro(el) {
+function entrarComoBarbeiro(el) {
     document.querySelectorAll('.barber-tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     barbeiroAtual = el.dataset.b;
-    document.getElementById('login-erro').textContent = '';
-}
-
-function toggleSenha() {
-    const input = document.getElementById('input-senha');
-    input.type = input.type === 'password' ? 'text' : 'password';
-}
-
-function fazerLogin() {
-    const senha = document.getElementById('input-senha').value.trim();
-    const erro = document.getElementById('login-erro');
-
-    if (!senha) {
-        erro.textContent = 'Digite a senha.';
-        return;
-    }
-
-    if (SENHAS[barbeiroAtual] === senha) {
-        barbeiroLogado = barbeiroAtual;
-        sessionStorage.setItem('sb_admin', barbeiroLogado); // persiste enquanto aba aberta
-        abrirPainel();
-    } else {
-        erro.textContent = 'Senha incorreta. Tente novamente.';
-        document.getElementById('input-senha').value = '';
-        document.getElementById('input-senha').focus();
-        // Shake na caixa de login
-        const box = document.querySelector('.login-box');
-        box.style.animation = 'none';
-        setTimeout(() => { box.style.animation = ''; }, 10);
-    }
+    barbeiroLogado = barbeiroAtual;
+    sessionStorage.setItem('sb_admin', barbeiroLogado); // persiste enquanto aba aberta
+    abrirPainel();
 }
 
 function fazerLogout() {
@@ -89,13 +59,12 @@ function fazerLogout() {
     sessionStorage.removeItem('sb_admin');
     document.getElementById('tela-painel').style.display = 'none';
     document.getElementById('tela-login').style.display = 'flex';
-    document.getElementById('input-senha').value = '';
 }
 
 /* ── Checar sessão ao carregar ── */
 window.addEventListener('load', () => {
     const salvo = sessionStorage.getItem('sb_admin');
-    if (salvo && SENHAS[salvo] !== undefined) {
+    if (salvo && BARBEIROS.includes(salvo)) {
         barbeiroLogado = salvo;
         barbeiroAtual = salvo;
         // Marcar tab correta

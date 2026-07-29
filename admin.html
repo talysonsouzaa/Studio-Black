@@ -116,37 +116,20 @@
             </div>
 
             <h1 class="login-titulo">Área Administrativa</h1>
-            <p class="login-sub">Selecione seu perfil e insira a senha de acesso</p>
+            <p class="login-sub">Selecione seu perfil para entrar</p>
 
             <div class="barber-tabs">
-                <button class="barber-tab active" data-b="Borel Barber" onclick="selecionarBarbeiro(this)">
+                <button class="barber-tab" data-b="Borel Barber" onclick="entrarComoBarbeiro(this)">
                     <div class="tab-avatar">B</div>
                     <span>Borel Barber</span>
                 </button>
-                <button class="barber-tab" data-b="Junior Barber" onclick="selecionarBarbeiro(this)">
+                <button class="barber-tab" data-b="Junior Barber" onclick="entrarComoBarbeiro(this)">
                     <div class="tab-avatar">J</div>
                     <span>Junior Barber</span>
                 </button>
             </div>
 
-            <div class="login-campo">
-                <label>Senha</label>
-                <div class="input-wrap">
-                    <input type="password" id="input-senha" placeholder="••••••••"
-                        onkeydown="if(event.key==='Enter') fazerLogin()" />
-                    <button class="toggle-senha" onclick="toggleSenha()" title="Mostrar senha">
-                        <svg id="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
             <div id="login-erro" class="login-erro"></div>
-
-            <button class="btn-entrar" onclick="fazerLogin()">Entrar no Painel</button>
 
             <a href="index.html" class="login-voltar">← Voltar ao site</a>
         </div>
