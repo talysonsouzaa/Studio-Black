@@ -8,8 +8,8 @@ const API_BASE = 'https://studioblack.up.railway.app';
 
 /* ── Senhas ── */
 const SENHAS = {
-    'Borel Barber': 'borel2026',
-    'Junior Barber': 'junior2026',
+    'Borel Barber': '',
+    'Junior Barber': '',
 };
 
 /* ── Preços dinâmicos (atualizados do backend) ── */
